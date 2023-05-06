@@ -1,0 +1,7 @@
+{
+    "name": "Portainer",
+    "homeassistant": "2022.2.0",
+    "render_readme": false,
+    "zip_release": true,
+    "filename": "portainer.zip"
+}
