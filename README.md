@@ -1,5 +1,3 @@
-# This integration is in active development and should be only used for testing. 
-
 # Portainer integration for Home Assistant
 ![GitHub release (latest by date)](https://img.shields.io/github/v/release/tomaae/homeassistant-portainer?style=plastic)
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-41BDF5.svg?style=plastic)](https://github.com/hacs/integration)
@@ -20,7 +18,8 @@
 Monitor and control Portainer from Home Assistant.
 
 Features:
-* Endpoints
+* List Endpoints
+* List Containers
 
 # Features
 ## Endpoints
@@ -31,7 +30,7 @@ List of portainer endpoint.
 ## Containers
 List of containers.
 
-![Endpoints](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/containers.png)
+![Containers](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/containers.png)
 
 # Install integration
 This integration is distributed using [HACS](https://hacs.xyz/).
