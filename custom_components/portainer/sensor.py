@@ -26,6 +26,7 @@ async def async_setup_entry(
     """Set up entry for portainer component."""
     dispatcher = {
         "PortainerSensor": PortainerSensor,
+        "ContainerSensor": ContainerSensor,
     }
     await model_async_setup_entry(
         hass,
@@ -72,3 +73,22 @@ class PortainerSensor(PortainerEntity, SensorEntity):
             return self.entity_description.native_unit_of_measurement
 
         return None
+
+class ContainerSensor(PortainerSensor):
+    """Define an Portainer sensor."""
+
+    def __init__(
+        self,
+        inst,
+        uid: "",
+        portainer_controller,
+        entity_description,
+    ):
+        super().__init__(inst, uid, portainer_controller, entity_description)
+        if self.entity_description.ha_group.startswith("data__"):
+            dev_group = self.entity_description.ha_group[6:]
+            if dev_group in self._data and self._data[dev_group] in self._ctrl.data["endpoints"]:
+                self.entity_description.ha_group = self._ctrl.data["endpoints"][self._data[dev_group]]["Name"]
+
+
+
