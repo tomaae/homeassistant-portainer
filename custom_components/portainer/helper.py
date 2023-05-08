@@ -28,4 +28,3 @@ def as_local(dattim: datetime) -> datetime:
         dattim = utc.localize(dattim)
 
     return dattim.astimezone(DEFAULT_TIME_ZONE)
-
