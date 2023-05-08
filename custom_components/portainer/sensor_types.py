@@ -36,6 +36,7 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
     "ComposeVersion",
 ]
 
+
 @dataclass
 class PortainerSensorEntityDescription(SensorEntityDescription):
     """Class describing portainer entities."""
@@ -82,5 +83,4 @@ SENSOR_TYPES = {
     ),
 }
 
-SENSOR_SERVICES = [
-]
+SENSOR_SERVICES = []

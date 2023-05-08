@@ -115,6 +115,7 @@ class PortainerControllerData(object):
 
         async_dispatcher_send(self.hass, self.signal_update)
         self.lock.release()
+
     # ---------------------------
     #   get_endpoints
     # ---------------------------
@@ -153,20 +154,37 @@ class PortainerControllerData(object):
                 ],
             )
 
-
             self.data["containers"] = parse_api(
                 data={},
-                source=self.data["endpoints"][uid]["Snapshots"][0]["DockerSnapshotRaw"]["Containers"],
+                source=self.data["endpoints"][uid]["Snapshots"][0]["DockerSnapshotRaw"][
+                    "Containers"
+                ],
                 key="Id",
                 vals=[
                     {"name": "Id", "default": "unknown"},
                     {"name": "Names", "default": "unknown"},
                     {"name": "Image", "default": "unknown"},
                     {"name": "State", "default": "unknown"},
-                    {"name": "Network", "source": "HostConfig/NetworkMode", "default": "unknown"},
-                    {"name": "ComposeStack", "source":"Labels/com.docker.compose.project","default": ""},
-                    {"name": "ComposeService", "source": "Labels/com.docker.compose.service", "default": ""},
-                    {"name": "ComposeVersion", "source": "Labels/com.docker.compose.version", "default": ""},
+                    {
+                        "name": "Network",
+                        "source": "HostConfig/NetworkMode",
+                        "default": "unknown",
+                    },
+                    {
+                        "name": "ComposeStack",
+                        "source": "Labels/com.docker.compose.project",
+                        "default": "",
+                    },
+                    {
+                        "name": "ComposeService",
+                        "source": "Labels/com.docker.compose.service",
+                        "default": "",
+                    },
+                    {
+                        "name": "ComposeVersion",
+                        "source": "Labels/com.docker.compose.version",
+                        "default": "",
+                    },
                 ],
                 ensure_vals=[
                     {"name": "Name", "default": "unknown"},
@@ -174,6 +192,8 @@ class PortainerControllerData(object):
                 ],
             )
             for cid in self.data["containers"]:
-                self.data["containers"][cid]["Name"] = self.data["containers"][cid]["Names"][0][1:]
+                self.data["containers"][cid]["Name"] = self.data["containers"][cid][
+                    "Names"
+                ][0][1:]
 
             del self.data["endpoints"][uid]["Snapshots"]
