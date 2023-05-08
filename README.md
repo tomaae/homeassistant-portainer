@@ -25,10 +25,12 @@ Features:
 # Features
 ## Endpoints
 List of portainer endpoint.
+
 ![Endpoints](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/endpoints.png)
 
 ## Containers
 List of containers.
+
 ![Endpoints](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/containers.png)
 
 # Install integration
