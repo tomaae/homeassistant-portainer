@@ -84,6 +84,7 @@ class PortainerAPI(object):
                     headers=headers,
                     params=params,
                     verify=self._ssl_verify,
+                    timeout=10,
                 )
 
             elif method == "post":
@@ -92,6 +93,7 @@ class PortainerAPI(object):
                     headers=headers,
                     json=params,
                     verify=self._ssl_verify,
+                    timeout=10,
                 )
 
             if response.status_code == 200:
