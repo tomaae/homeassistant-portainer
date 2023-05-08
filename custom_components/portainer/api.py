@@ -52,7 +52,7 @@ class PortainerAPI(object):
     # ---------------------------
     def connection_test(self) -> tuple:
         """Test connection."""
-        self.query("endpoints/2/docker/containers/json")
+        self.query("endpoints")
 
         return self._connected, self._error
 

@@ -39,6 +39,7 @@ class PortainerControllerData(object):
 
         self.data = {
             "endpoints": {},
+            "containers": {},
         }
 
         self.listeners = []
@@ -111,9 +112,6 @@ class PortainerControllerData(object):
             return
 
         await self.hass.async_add_executor_job(self.get_endpoints)
-        # if self.api.connected():
-        #     await self.hass.async_add_executor_job(self.get_systemstats)
-
 
         async_dispatcher_send(self.hass, self.signal_update)
         self.lock.release()
@@ -154,5 +152,28 @@ class PortainerControllerData(object):
                     {"name": "StackCount", "default": 0},
                 ],
             )
-            del self.data["endpoints"][uid]["Snapshots"]
 
+
+            self.data["containers"] = parse_api(
+                data={},
+                source=self.data["endpoints"][uid]["Snapshots"][0]["DockerSnapshotRaw"]["Containers"],
+                key="Id",
+                vals=[
+                    {"name": "Id", "default": "unknown"},
+                    {"name": "Names", "default": "unknown"},
+                    {"name": "Image", "default": "unknown"},
+                    {"name": "State", "default": "unknown"},
+                    {"name": "Network", "source": "HostConfig/NetworkMode", "default": "unknown"},
+                    {"name": "ComposeStack", "source":"Labels/com.docker.compose.project","default": ""},
+                    {"name": "ComposeService", "source": "Labels/com.docker.compose.service", "default": ""},
+                    {"name": "ComposeVersion", "source": "Labels/com.docker.compose.version", "default": ""},
+                ],
+                ensure_vals=[
+                    {"name": "Name", "default": "unknown"},
+                    {"name": "EndpointId", "default": uid},
+                ],
+            )
+            for cid in self.data["containers"]:
+                self.data["containers"][cid]["Name"] = self.data["containers"][cid]["Names"][0][1:]
+
+            del self.data["endpoints"][uid]["Snapshots"]
