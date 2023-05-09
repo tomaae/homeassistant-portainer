@@ -29,6 +29,7 @@ async def async_setup_entry(
     """Set up entry for portainer component."""
     dispatcher = {
         "PortainerSensor": PortainerSensor,
+        "EndpointSensor": EndpointSensor,
         "ContainerSensor": ContainerSensor,
     }
     await async_add_entities(hass, config_entry, dispatcher)
@@ -68,6 +69,25 @@ class PortainerSensor(PortainerEntity, SensorEntity):
             return self.description.native_unit_of_measurement
 
 
+# ---------------------------
+#   EndpointsSensor
+# ---------------------------
+class EndpointSensor(PortainerSensor):
+    """Define an Portainer sensor."""
+
+    def __init__(
+        self,
+        coordinator: PortainerDataUpdateCoordinator,
+        description,
+        uid: str | None = None,
+    ):
+        super().__init__(coordinator, description, uid)
+        self.manufacturer = "Portainer"
+
+
+# ---------------------------
+#   ContainerSensor
+# ---------------------------
 class ContainerSensor(PortainerSensor):
     """Define an Portainer sensor."""
 
@@ -78,6 +98,9 @@ class ContainerSensor(PortainerSensor):
         uid: str | None = None,
     ):
         super().__init__(coordinator, description, uid)
+        self.sw_version = self.coordinator.data["endpoints"][self._data["EndpointId"]][
+            "DockerVersion"
+        ]
         if self.description.ha_group.startswith("data__"):
             dev_group = self.description.ha_group[6:]
             if (

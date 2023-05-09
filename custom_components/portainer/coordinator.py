@@ -76,6 +76,7 @@ class PortainerDataUpdateCoordinator(DataUpdateCoordinator):
 
         try:
             await self.hass.async_add_executor_job(self.get_endpoints)
+            await self.hass.async_add_executor_job(self.get_containers)
         except Exception as error:
             self.lock.release()
             raise UpdateFailed(error) from error
@@ -125,45 +126,57 @@ class PortainerDataUpdateCoordinator(DataUpdateCoordinator):
             )
 
         del self.data["endpoints"][uid]["Snapshots"]
-        #
-        # self.data["containers"] = parse_api(
-        #     data={},
-        #     source=self.data["endpoints"][uid]["Snapshots"][0]["DockerSnapshotRaw"][
-        #         "Containers"
-        #     ],
-        #     key="Id",
-        #     vals=[
-        #         {"name": "Id", "default": "unknown"},
-        #         {"name": "Names", "default": "unknown"},
-        #         {"name": "Image", "default": "unknown"},
-        #         {"name": "State", "default": "unknown"},
-        #         {
-        #             "name": "Network",
-        #             "source": "HostConfig/NetworkMode",
-        #             "default": "unknown",
-        #         },
-        #         {
-        #             "name": "Compose_Stack",
-        #             "source": "Labels/com.docker.compose.project",
-        #             "default": "",
-        #         },
-        #         {
-        #             "name": "Compose_Service",
-        #             "source": "Labels/com.docker.compose.service",
-        #             "default": "",
-        #         },
-        #         {
-        #             "name": "Compose_Version",
-        #             "source": "Labels/com.docker.compose.version",
-        #             "default": "",
-        #         },
-        #     ],
-        #     ensure_vals=[
-        #         {"name": "Name", "default": "unknown"},
-        #         {"name": "EndpointId", "default": uid},
-        #     ],
-        # )
-        # for cid in self.data["containers"]:
-        #     self.data["containers"][cid]["Name"] = self.data["containers"][cid][
-        #         "Names"
-        #     ][0][1:]
+
+    # ---------------------------
+    #   get_containers
+    # ---------------------------
+    def get_containers(self) -> None:
+        self.data["containers"] = {}
+        for eid in self.data["endpoints"]:
+            self.data["containers"] = parse_api(
+                data=self.data["containers"],
+                source=self.api.query(
+                    f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
+                ),
+                key="Id",
+                vals=[
+                    {"name": "Id", "default": "unknown"},
+                    {"name": "Names", "default": "unknown"},
+                    {"name": "Image", "default": "unknown"},
+                    {"name": "State", "default": "unknown"},
+                    {"name": "Ports", "default": "unknown"},
+                    {
+                        "name": "Network",
+                        "source": "HostConfig/NetworkMode",
+                        "default": "unknown",
+                    },
+                    {
+                        "name": "Compose_Stack",
+                        "source": "Labels/com.docker.compose.project",
+                        "default": "",
+                    },
+                    {
+                        "name": "Compose_Service",
+                        "source": "Labels/com.docker.compose.service",
+                        "default": "",
+                    },
+                    {
+                        "name": "Compose_Version",
+                        "source": "Labels/com.docker.compose.version",
+                        "default": "",
+                    },
+                ],
+                ensure_vals=[
+                    {"name": "Name", "default": "unknown"},
+                    {"name": "EndpointId", "default": eid},
+                ],
+            )
+
+            for cid in self.data["containers"]:
+                self.data["containers"][cid]["Name"] = self.data["containers"][cid][
+                    "Names"
+                ][0][1:]
+
+            print(
+                f"data State {self.data['containers']['1ad1ce062af808a95e0c099425158405b83abc696bfa6ce1f3c45562be405344']['State']}"
+            )

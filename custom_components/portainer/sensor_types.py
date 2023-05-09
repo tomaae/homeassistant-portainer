@@ -29,13 +29,13 @@ DEVICE_ATTRIBUTES_ENDPOINTS = [
     "StackCount",
 ]
 
-# DEVICE_ATTRIBUTES_CONTAINERS = [
-#     "Image",
-#     "Network",
-#     "Compose_Stack",
-#     "Compose_Service",
-#     "Compose_Version",
-# ]
+DEVICE_ATTRIBUTES_CONTAINERS = [
+    "Image",
+    "Network",
+    "Compose_Stack",
+    "Compose_Service",
+    "Compose_Version",
+]
 
 
 @dataclass
@@ -67,21 +67,22 @@ SENSOR_TYPES: tuple[PortainerSensorEntityDescription, ...] = (
         data_uid="",
         data_reference="Id",
         data_attributes_list=DEVICE_ATTRIBUTES_ENDPOINTS,
+        func="EndpointSensor",
     ),
-    # PortainerSensorEntityDescription(
-    #     key="containers",
-    #     name="",
-    #     icon="mdi:train-car-container",
-    #     entity_category=None,
-    #     ha_group="data__EndpointId",
-    #     data_path="containers",
-    #     data_attribute="State",
-    #     data_name="Name",
-    #     data_uid="",
-    #     data_reference="Id",
-    #     data_attributes_list=DEVICE_ATTRIBUTES_CONTAINERS,
-    #     func="ContainerSensor",
-    # ),
+    PortainerSensorEntityDescription(
+        key="containers",
+        name="",
+        icon="mdi:train-car-container",
+        entity_category=None,
+        ha_group="data__EndpointId",
+        data_path="containers",
+        data_attribute="State",
+        data_name="Name",
+        data_uid="",
+        data_reference="Id",
+        data_attributes_list=DEVICE_ATTRIBUTES_CONTAINERS,
+        func="ContainerSensor",
+    ),
 )
 
 SENSOR_SERVICES = []
