@@ -177,6 +177,6 @@ class PortainerDataUpdateCoordinator(DataUpdateCoordinator):
                     "Names"
                 ][0][1:]
 
-            print(
-                f"data State {self.data['containers']['1ad1ce062af808a95e0c099425158405b83abc696bfa6ce1f3c45562be405344']['State']}"
-            )
+            # print(
+            #     f"data State {self.data['containers']['1ad1ce062af808a95e0c099425158405b83abc696bfa6ce1f3c45562be405344']['State']}"
+            # )

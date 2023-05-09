@@ -129,8 +129,8 @@ class PortainerEntity(CoordinatorEntity[PortainerDataUpdateCoordinator], Entity)
     @property
     def available(self) -> bool:
         """Return if controller is available."""
-        if "Name" in self._data and self._data["Name"] == "storj-nginx":
-            print(f"Entity State {self._data['State']}")
+        # if "Name" in self._data and self._data["Name"] == "storj-nginx":
+        #     print(f"Entity State {self._data['State']}")
         return self.coordinator.connected()
 
     @property
