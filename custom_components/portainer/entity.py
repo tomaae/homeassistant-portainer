@@ -96,6 +96,8 @@ class PortainerEntity(CoordinatorEntity[PortainerDataUpdateCoordinator], Entity)
     ) -> None:
         """Initialize entity."""
         super().__init__(coordinator)
+        self.manufacturer = "Docker"
+        self.sw_version = ""
         self.coordinator = coordinator
         self.description = description
         self._inst = coordinator.config_entry.data[CONF_NAME]
@@ -127,6 +129,8 @@ class PortainerEntity(CoordinatorEntity[PortainerDataUpdateCoordinator], Entity)
     @property
     def available(self) -> bool:
         """Return if controller is available."""
+        if "Name" in self._data and self._data["Name"] == "storj-nginx":
+            print(f"Entity State {self._data['State']}")
         return self.coordinator.connected()
 
     @property
@@ -154,6 +158,8 @@ class PortainerEntity(CoordinatorEntity[PortainerDataUpdateCoordinator], Entity)
             connections={(dev_connection, f"{dev_connection_value}")},
             identifiers={(dev_connection, f"{dev_connection_value}")},
             default_name=f"{self._inst} {dev_group}",
+            default_manufacturer=f"{self.manufacturer}",
+            sw_version=f"{self.sw_version}",
             configuration_url=f"http://{self.coordinator.config_entry.data[CONF_HOST]}",
         )
 
