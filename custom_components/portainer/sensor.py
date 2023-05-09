@@ -1,4 +1,6 @@
 """Portainer sensor platform."""
+from __future__ import annotations
+
 from logging import getLogger
 from datetime import date, datetime
 from decimal import Decimal
@@ -9,8 +11,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .model import PortainerEntity, model_async_setup_entry
-from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES
+from .entity import PortainerEntity, async_add_entities
+from .coordinator import PortainerDataUpdateCoordinator
+from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
 
 _LOGGER = getLogger(__name__)
 
@@ -21,21 +24,14 @@ _LOGGER = getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    _async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up entry for portainer component."""
     dispatcher = {
         "PortainerSensor": PortainerSensor,
         "ContainerSensor": ContainerSensor,
     }
-    await model_async_setup_entry(
-        hass,
-        config_entry,
-        async_add_entities,
-        SENSOR_SERVICES,
-        SENSOR_TYPES,
-        dispatcher,
-    )
+    await async_add_entities(hass, config_entry, dispatcher)
 
 
 # ---------------------------
@@ -46,33 +42,30 @@ class PortainerSensor(PortainerEntity, SensorEntity):
 
     def __init__(
         self,
-        inst,
-        uid: "",
-        portainer_controller,
-        entity_description,
+        coordinator: PortainerDataUpdateCoordinator,
+        description,
+        uid: str | None = None,
     ):
-        super().__init__(inst, uid, portainer_controller, entity_description)
+        super().__init__(coordinator, description, uid)
         self._attr_suggested_unit_of_measurement = (
-            self.entity_description.suggested_unit_of_measurement
+            self.description.suggested_unit_of_measurement
         )
 
     @property
     def native_value(self) -> StateType | date | datetime | Decimal:
         """Return the value reported by the sensor."""
-        return self._data[self.entity_description.data_attribute]
+        return self._data[self.description.data_attribute]
 
     @property
-    def native_unit_of_measurement(self):
+    def native_unit_of_measurement(self) -> str | None:
         """Return the unit the value is expressed in."""
-        if self.entity_description.native_unit_of_measurement:
-            if self.entity_description.native_unit_of_measurement.startswith("data__"):
-                uom = self.entity_description.native_unit_of_measurement[6:]
+        if self.description.native_unit_of_measurement:
+            if self.description.native_unit_of_measurement.startswith("data__"):
+                uom = self.description.native_unit_of_measurement[6:]
                 if uom in self._data:
                     return self._data[uom]
 
-            return self.entity_description.native_unit_of_measurement
-
-        return None
+            return self.description.native_unit_of_measurement
 
 
 class ContainerSensor(PortainerSensor):
@@ -80,18 +73,17 @@ class ContainerSensor(PortainerSensor):
 
     def __init__(
         self,
-        inst,
-        uid: "",
-        portainer_controller,
-        entity_description,
+        coordinator: PortainerDataUpdateCoordinator,
+        description,
+        uid: str | None = None,
     ):
-        super().__init__(inst, uid, portainer_controller, entity_description)
-        if self.entity_description.ha_group.startswith("data__"):
-            dev_group = self.entity_description.ha_group[6:]
+        super().__init__(coordinator, description, uid)
+        if self.description.ha_group.startswith("data__"):
+            dev_group = self.description.ha_group[6:]
             if (
                 dev_group in self._data
-                and self._data[dev_group] in self._ctrl.data["endpoints"]
+                and self._data[dev_group] in self.coordinator.data["endpoints"]
             ):
-                self.entity_description.ha_group = self._ctrl.data["endpoints"][
+                self.description.ha_group = self.coordinator.data["endpoints"][
                     self._data[dev_group]
                 ]["Name"]
