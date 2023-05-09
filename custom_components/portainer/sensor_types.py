@@ -65,7 +65,7 @@ SENSOR_TYPES: tuple[PortainerSensorEntityDescription, ...] = (
         data_attribute="RunningContainerCount",
         data_name="Name",
         data_uid="",
-        data_reference="Id",
+        data_reference="Name",
         data_attributes_list=DEVICE_ATTRIBUTES_ENDPOINTS,
         func="EndpointSensor",
     ),
