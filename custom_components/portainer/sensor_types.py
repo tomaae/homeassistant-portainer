@@ -1,4 +1,6 @@
-"""Definitions for TrueNAS sensor entities."""
+"""Definitions for sensor entities."""
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import List
 
@@ -11,7 +13,6 @@ from homeassistant.helpers.entity import EntityCategory
 
 
 DEVICE_ATTRIBUTES_ENDPOINTS = [
-    "Id",
     "Type",
     "Status",
     "DockerVersion",
@@ -28,33 +29,33 @@ DEVICE_ATTRIBUTES_ENDPOINTS = [
     "StackCount",
 ]
 
-DEVICE_ATTRIBUTES_CONTAINERS = [
-    "Image",
-    "Network",
-    "ComposeStack",
-    "ComposeService",
-    "ComposeVersion",
-]
+# DEVICE_ATTRIBUTES_CONTAINERS = [
+#     "Image",
+#     "Network",
+#     "Compose_Stack",
+#     "Compose_Service",
+#     "Compose_Version",
+# ]
 
 
 @dataclass
 class PortainerSensorEntityDescription(SensorEntityDescription):
     """Class describing portainer entities."""
 
-    ha_group: str = ""
-    ha_connection: str = ""
-    ha_connection_value: str = ""
-    data_path: str = ""
-    data_attribute: str = ""
-    data_name: str = ""
-    data_uid: str = ""
-    data_reference: str = ""
+    ha_group: str | None = None
+    ha_connection: str | None = None
+    ha_connection_value: str | None = None
+    data_path: str | None = None
+    data_attribute: str | None = None
+    data_name: str | None = None
+    data_uid: str | None = None
+    data_reference: str | None = None
     data_attributes_list: List = field(default_factory=lambda: [])
     func: str = "PortainerSensor"
 
 
-SENSOR_TYPES = {
-    "endpoints": PortainerSensorEntityDescription(
+SENSOR_TYPES: tuple[PortainerSensorEntityDescription, ...] = (
+    PortainerSensorEntityDescription(
         key="endpoints",
         name="",
         icon="mdi:truck-cargo-container",
@@ -67,20 +68,20 @@ SENSOR_TYPES = {
         data_reference="Id",
         data_attributes_list=DEVICE_ATTRIBUTES_ENDPOINTS,
     ),
-    "containers": PortainerSensorEntityDescription(
-        key="containers",
-        name="",
-        icon="mdi:train-car-container",
-        entity_category=None,
-        ha_group="data__EndpointId",
-        data_path="containers",
-        data_attribute="State",
-        data_name="Name",
-        data_uid="",
-        data_reference="Id",
-        data_attributes_list=DEVICE_ATTRIBUTES_CONTAINERS,
-        func="ContainerSensor",
-    ),
-}
+    # PortainerSensorEntityDescription(
+    #     key="containers",
+    #     name="",
+    #     icon="mdi:train-car-container",
+    #     entity_category=None,
+    #     ha_group="data__EndpointId",
+    #     data_path="containers",
+    #     data_attribute="State",
+    #     data_name="Name",
+    #     data_uid="",
+    #     data_reference="Id",
+    #     data_attributes_list=DEVICE_ATTRIBUTES_CONTAINERS,
+    #     func="ContainerSensor",
+    # ),
+)
 
 SENSOR_SERVICES = []
