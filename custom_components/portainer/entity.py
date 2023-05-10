@@ -20,7 +20,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
 from .const import ATTRIBUTION, DOMAIN
-from .coordinator import PortainerDataUpdateCoordinator
+from .coordinator import PortainerCoordinator
 from .helper import format_attribute
 
 _LOGGER = getLogger(__name__)
@@ -83,14 +83,14 @@ async def async_add_entities(
 # ---------------------------
 #   PortainerEntity
 # ---------------------------
-class PortainerEntity(CoordinatorEntity[PortainerDataUpdateCoordinator], Entity):
+class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
     """Define entity."""
 
     _attr_has_entity_name = True
 
     def __init__(
         self,
-        coordinator: PortainerDataUpdateCoordinator,
+        coordinator: PortainerCoordinator,
         description,
         uid: str | None = None,
     ) -> None:

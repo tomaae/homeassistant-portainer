@@ -27,7 +27,7 @@ _LOGGER = getLogger(__name__)
 # ---------------------------
 #   PortainerControllerData
 # ---------------------------
-class PortainerDataUpdateCoordinator(DataUpdateCoordinator):
+class PortainerCoordinator(DataUpdateCoordinator):
     """PortainerControllerData Class."""
 
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
