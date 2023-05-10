@@ -12,7 +12,7 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .entity import PortainerEntity, async_add_entities
-from .coordinator import PortainerDataUpdateCoordinator
+from .coordinator import PortainerCoordinator
 from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
 
 _LOGGER = getLogger(__name__)
@@ -43,7 +43,7 @@ class PortainerSensor(PortainerEntity, SensorEntity):
 
     def __init__(
         self,
-        coordinator: PortainerDataUpdateCoordinator,
+        coordinator: PortainerCoordinator,
         description,
         uid: str | None = None,
     ):
@@ -77,7 +77,7 @@ class EndpointSensor(PortainerSensor):
 
     def __init__(
         self,
-        coordinator: PortainerDataUpdateCoordinator,
+        coordinator: PortainerCoordinator,
         description,
         uid: str | None = None,
     ):
@@ -93,7 +93,7 @@ class ContainerSensor(PortainerSensor):
 
     def __init__(
         self,
-        coordinator: PortainerDataUpdateCoordinator,
+        coordinator: PortainerCoordinator,
         description,
         uid: str | None = None,
     ):
