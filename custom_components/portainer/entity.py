@@ -105,7 +105,14 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         self._uid = uid
         self._data = coordinator.data[self.description.data_path]
         if self._uid:
-            self._data = self._data[self._uid]
+            self._data = coordinator.data[self.description.data_path][self._uid]
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._data = self.coordinator.data[self.description.data_path]
+        if self._uid:
+            self._data = self.coordinator.data[self.description.data_path][self._uid]
+        super()._handle_coordinator_update()
 
     @property
     def name(self) -> str:
