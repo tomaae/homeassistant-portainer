@@ -35,6 +35,7 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
     "Compose_Stack",
     "Compose_Service",
     "Compose_Version",
+    "Environment"
 ]
 
 
