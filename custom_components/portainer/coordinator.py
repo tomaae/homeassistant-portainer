@@ -171,8 +171,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     {"name": "EndpointId", "default": eid},
                 ],
             )
-
             for cid in self.data["containers"]:
+                self.data["containers"][cid]["Environment"] = self.data["endpoints"][
+                    eid
+                ]["Name"]
                 self.data["containers"][cid]["Name"] = self.data["containers"][cid][
                     "Names"
                 ][0][1:]
