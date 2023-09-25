@@ -1,0 +1,23 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "description": "Configurar a integração do Portainer.",
+                "data": {
+                    "name": "Nome da integração",
+                    "host": "Endereço",
+                    "api_key": "Chave de API",
+                    "ssl": "Usar SSL",
+                    "verify_ssl": "Verificar SSL"
+                }
+            }
+        },
+        "error": {
+            "name_exists": "Nome já existe.",
+            "no_response": "Sem Resposta do servidor.",
+            "401": "Não autorizado.",
+            "404": "Não encontrado.",
+            "500": "Erro interno."
+        }
+    }
+}
