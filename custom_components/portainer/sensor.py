@@ -101,6 +101,17 @@ class ContainerSensor(PortainerSensor):
         self.sw_version = self.coordinator.data["endpoints"][self._data["EndpointId"]][
             "DockerVersion"
         ]
+
+        url = self.coordinator.data["endpoints"][self._data["EndpointId"]]["URL"]
+        if url.startswith('unix://'):
+            self.model = 'socket'
+        elif url.startswith('tcp://'):
+            self.model = 'agent'
+        elif url.startswith('http://') or url.startswith('https://'):
+            self.model = 'api'
+        else:
+            self.model = None  # Handle any unexpected URL format
+
         if self.description.ha_group.startswith("data__"):
             dev_group = self.description.ha_group[6:]
             if (
