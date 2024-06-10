@@ -133,8 +133,8 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         self.data["containers"] = {}
         for eid in self.data["endpoints"]:
-            self.data["containers"] = parse_api(
-                data=self.data["containers"],
+            containers = parse_api(
+                data={},
                 source=self.api.query(
                     f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
                 ),
@@ -171,10 +171,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     {"name": "EndpointId", "default": eid},
                 ],
             )
-            for cid in self.data["containers"]:
-                self.data["containers"][cid]["Environment"] = self.data["endpoints"][
-                    eid
-                ]["Name"]
-                self.data["containers"][cid]["Name"] = self.data["containers"][cid][
-                    "Names"
-                ][0][1:]
+            for cid in containers:
+                containers[cid]["Environment"] = self.data["endpoints"][eid]["Name"]
+                containers[cid]["Name"] = containers[cid]["Names"][0][1:]
+                self.data["containers"][cid] = containers[cid]
