@@ -100,6 +100,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 {"name": "Snapshots", "default": "unknown"},
                 {"name": "Type", "default": 0},
                 {"name": "Status", "default": 0},
+                {"name": "URL", "default": "unknown"},
             ],
         )
         if not self.data["endpoints"]:

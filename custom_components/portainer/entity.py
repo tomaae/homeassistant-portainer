@@ -100,6 +100,7 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         self.sw_version = ""
         self.coordinator = coordinator
         self.description = description
+        self.model = ""
         self._inst = coordinator.config_entry.data[CONF_NAME]
         self._attr_extra_state_attributes = {ATTR_ATTRIBUTION: ATTRIBUTION}
         self._uid = uid
@@ -173,6 +174,7 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 connections={(dev_connection, f"{dev_connection_value}")},
                 default_name=f"{self._inst} {dev_group}",
                 default_manufacturer=f"{self.manufacturer}",
+                default_model=f'{self.model}',
             )
 
     @property
