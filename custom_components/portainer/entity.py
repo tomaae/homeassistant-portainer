@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ATTRIBUTION, CONF_HOST, CONF_NAME
+from homeassistant.const import ATTR_ATTRIBUTION, CONF_HOST, CONF_NAME, CONF_SSL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     entity_platform as ep,
@@ -159,14 +159,16 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 dev_connection_value = dev_connection_value[6:]
                 dev_connection_value = self._data[dev_connection_value]
 
-        if self.description.ha_group == "System":
+        if self.description.ha_group == "Endpoints":
+            protocol = 'https' if self.coordinator.config_entry['data'][CONF_SSL] else 'http'
+
             return DeviceInfo(
                 connections={(dev_connection, f"{dev_connection_value}")},
                 identifiers={(dev_connection, f"{dev_connection_value}")},
                 name=f"{self._inst} {dev_group}",
                 manufacturer=f"{self.manufacturer}",
                 sw_version=f"{self.sw_version}",
-                configuration_url=f"http://{self.coordinator.config_entry.data[CONF_HOST]}",
+                configuration_url=f"{protocol}://{self.coordinator.config_entry['data'][CONF_HOST]}",
             )
         else:
             return DeviceInfo(
