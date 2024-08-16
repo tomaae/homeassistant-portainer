@@ -133,48 +133,49 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         self.data["containers"] = {}
         for eid in self.data["endpoints"]:
-            self.data["containers"] = parse_api(
-                data=self.data["containers"],
-                source=self.api.query(
-                    f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
-                ),
-                key="Id",
-                vals=[
-                    {"name": "Id", "default": "unknown"},
-                    {"name": "Names", "default": "unknown"},
-                    {"name": "Image", "default": "unknown"},
-                    {"name": "State", "default": "unknown"},
-                    {"name": "Ports", "default": "unknown"},
-                    {
-                        "name": "Network",
-                        "source": "HostConfig/NetworkMode",
-                        "default": "unknown",
-                    },
-                    {
-                        "name": "Compose_Stack",
-                        "source": "Labels/com.docker.compose.project",
-                        "default": "",
-                    },
-                    {
-                        "name": "Compose_Service",
-                        "source": "Labels/com.docker.compose.service",
-                        "default": "",
-                    },
-                    {
-                        "name": "Compose_Version",
-                        "source": "Labels/com.docker.compose.version",
-                        "default": "",
-                    },
-                ],
-                ensure_vals=[
-                    {"name": "Name", "default": "unknown"},
-                    {"name": "EndpointId", "default": eid},
-                ],
-            )
-            for cid in self.data["containers"]:
-                self.data["containers"][cid]["Environment"] = self.data["endpoints"][
-                    eid
-                ]["Name"]
-                self.data["containers"][cid]["Name"] = self.data["containers"][cid][
-                    "Names"
-                ][0][1:]
+            if self.data["endpoints"][eid]["Status"] == 1:
+                self.data["containers"] = parse_api(
+                    data=self.data["containers"],
+                    source=self.api.query(
+                        f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
+                    ),
+                    key="Id",
+                    vals=[
+                        {"name": "Id", "default": "unknown"},
+                        {"name": "Names", "default": "unknown"},
+                        {"name": "Image", "default": "unknown"},
+                        {"name": "State", "default": "unknown"},
+                        {"name": "Ports", "default": "unknown"},
+                        {
+                            "name": "Network",
+                            "source": "HostConfig/NetworkMode",
+                            "default": "unknown",
+                        },
+                        {
+                            "name": "Compose_Stack",
+                            "source": "Labels/com.docker.compose.project",
+                            "default": "",
+                        },
+                        {
+                            "name": "Compose_Service",
+                            "source": "Labels/com.docker.compose.service",
+                            "default": "",
+                        },
+                        {
+                            "name": "Compose_Version",
+                            "source": "Labels/com.docker.compose.version",
+                            "default": "",
+                        },
+                    ],
+                    ensure_vals=[
+                        {"name": "Name", "default": "unknown"},
+                        {"name": "EndpointId", "default": eid},
+                    ],
+                )
+                for cid in self.data["containers"]:
+                    self.data["containers"][cid]["Environment"] = self.data["endpoints"][
+                        eid
+                    ]["Name"]
+                    self.data["containers"][cid]["Name"] = self.data["containers"][cid][
+                        "Names"
+                    ][0][1:]
