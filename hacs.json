@@ -1,8 +1,7 @@
 {
-    "name": "Portainer",
+    "name": "Portainer dev",
     "homeassistant": "2023.9.0",
     "render_readme": false,
-    "zip_release": true,
-    "hide_default_branch": true,
-    "filename": "portainer.zip"
+    "zip_release": false,
+    "hide_default_branch": false
 }
