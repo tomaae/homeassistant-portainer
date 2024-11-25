@@ -16,7 +16,6 @@ DEFAULT_HOST = "10.0.0.1"
 DEFAULT_DEVICE_NAME = "Portainer"
 DEFAULT_SSL = False
 DEFAULT_SSL_VERIFY = True
-DEFAULT_HEALTH_CHECK = True
 
 TO_REDACT = {
     "password",

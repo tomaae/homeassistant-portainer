@@ -22,7 +22,6 @@ from .const import (
     DEFAULT_HOST,
     DEFAULT_SSL,
     DEFAULT_SSL_VERIFY,
-    #DEFAULT_HEALTH_CHECK,
     DOMAIN,
 )
 from .api import PortainerAPI
@@ -74,7 +73,6 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
                 user_input[CONF_API_KEY],
                 user_input[CONF_SSL],
                 user_input[CONF_VERIFY_SSL],
-                #user_input[CONF_HEALTH_CHECK],
             )
 
             conn, errorcode = await self.hass.async_add_executor_job(
@@ -99,7 +97,6 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_API_KEY: "",
                 CONF_SSL: DEFAULT_SSL,
                 CONF_VERIFY_SSL: DEFAULT_SSL_VERIFY,
-                #CONF_HEALTH_CHECK: DEFAULT_HEALTH_CHECK,
             },
             errors=errors,
         )
@@ -119,7 +116,6 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_VERIFY_SSL, default=user_input[CONF_VERIFY_SSL]
                     ): bool,
-                    #vol.Optional(CONF_HEALTH_CHECK, default=user_input[CONF_HEALTH_CHECK]): bool,
                 }
             ),
             errors=errors,

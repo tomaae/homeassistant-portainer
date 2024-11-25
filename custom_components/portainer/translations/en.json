@@ -8,8 +8,7 @@
                     "host": "Host",
                     "api_key": "API key",
                     "ssl": "Use SSL",
-                    "verify_ssl": "Verify SSL certificate",
-                    "health_check": "Populate health check as status"
+                    "verify_ssl": "Verify SSL certificate"
                 }
             }
         },
