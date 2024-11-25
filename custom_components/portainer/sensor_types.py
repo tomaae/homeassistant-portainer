@@ -36,7 +36,7 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
     "Compose_Service",
     "Compose_Version",
     "Environment",
-    "HealthStatus",
+    "Health_Status",
 ]
 
 
