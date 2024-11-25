@@ -53,6 +53,7 @@ You can add this integration several times for different portainer instances.
 * "Access token" - Use access token from previous step
 * "Use SSL" - Connect to portainer using SSL
 * "Verify SSL certificate" - Validate SSL certificate (must be trusted certificate)
+* "Track health" - Populate health check as status
 
 # Development
 ## Translation
