@@ -13,7 +13,6 @@ from homeassistant.const import (
     CONF_NAME,
     CONF_SSL,
     CONF_VERIFY_SSL,
-    CONF_HEALTH_CHECK,
 )
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
