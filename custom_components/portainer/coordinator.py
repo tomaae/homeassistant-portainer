@@ -191,6 +191,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             "default": "unknown",
                         }
                     ],
+                    ensure_vals=[
+                        {"name": "Health_Status", "default": "unknown"},
+                    ]
                 )
                 self.data["containers"][cid]["Health_Status"] = self.data["containers"][cid]["Health"]["Health_Status"]
                 del self.data["containers"][cid]["Health"]
