@@ -13,6 +13,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v2
 
+      - name: Extract Tag Without `v`
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/} # Remove refs/tags/
+          TAG_NAME=${TAG_NAME#v}            # Remove leading v if present
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+      - name: Update version
+        run: |
+          python3 /home/runner/work/homeassistant-portainer/homeassistant-portainer/.github/update_version.py --version $TAG_NAME
       - name: Zip portainer dir
         run: |
           cd /home/runner/work/homeassistant-portainer/homeassistant-portainer/custom_components/portainer
