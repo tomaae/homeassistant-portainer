@@ -186,9 +186,9 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                     attributes[format_attribute(variable)] = self._data[variable]
                 else:
                     for custom_variable in self._data[variable]:
-                        attributes[format_attribute(custom_variable)] = self._data[variable][
-                            custom_variable
-                        ]
+                        attributes[format_attribute(custom_variable)] = self._data[
+                            variable
+                        ][custom_variable]
 
         return attributes
 
