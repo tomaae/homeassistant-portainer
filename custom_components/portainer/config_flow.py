@@ -127,7 +127,6 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    # @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         return PortainerOptionsFlow(config_entry)
