@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 
+
 def find_manifest_file():
     """
     Search for manifest.json in the project directory.
@@ -10,6 +11,7 @@ def find_manifest_file():
         if "manifest.json" in files:
             return os.path.join(root, "manifest.json")
     raise FileNotFoundError("manifest.json file not found in the project directory.")
+
 
 def update_manifest_version(version):
     """
@@ -29,21 +31,29 @@ def update_manifest_version(version):
         # Write the updated manifest back to the file
         with open(manifest_path, "w") as file:
             json.dump(manifest_data, file, indent=4)
-        
+
         print(f"Successfully updated version to {version} in manifest.json.")
     except FileNotFoundError as e:
         print(e)
     except Exception as e:
         print(f"An error occurred: {e}")
 
+
 def main():
     # Set up argument parsing
-    parser = argparse.ArgumentParser(description="Update the version in the manifest.json file.")
-    parser.add_argument("--version", required=True, help="The new version to set in the manifest.json file.")
+    parser = argparse.ArgumentParser(
+        description="Update the version in the manifest.json file."
+    )
+    parser.add_argument(
+        "--version",
+        required=True,
+        help="The new version to set in the manifest.json file.",
+    )
     args = parser.parse_args()
 
     # Update the manifest version
     update_manifest_version(args.version)
+
 
 if __name__ == "__main__":
     main()
