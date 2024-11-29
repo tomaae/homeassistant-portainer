@@ -10,6 +10,13 @@
                     "ssl": "Use SSL",
                     "verify_ssl": "Verify SSL certificate"
                 }
+            },
+            "init": {
+                "description": "Enable or disable custom features.",
+                "data": {
+                    "feature_switch_health_check": "Health check",
+                    "feature_switch_restart_policy": "Restart policy"
+                }
             }
         },
         "error": {

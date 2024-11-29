@@ -1,4 +1,5 @@
 """Config flow to configure Portainer."""
+
 from __future__ import annotations
 
 from logging import getLogger
@@ -6,7 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow
+from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -23,6 +24,11 @@ from .const import (
     DEFAULT_SSL,
     DEFAULT_SSL_VERIFY,
     DOMAIN,
+    # feature switch
+    CONF_FEATURE_HEALTH_CHECK,
+    DEFAULT_FEATURE_HEALTH_CHECK,
+    CONF_FEATURE_RESTART_POLICY,
+    DEFAULT_FEATURE_RESTART_POLICY,
 )
 from .api import PortainerAPI
 
@@ -119,4 +125,43 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    # @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return PortainerOptionsFlow(config_entry)
+
+
+class PortainerOptionsFlow(OptionsFlow):
+    """Handle options flow for My Integration."""
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Show options form
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_FEATURE_HEALTH_CHECK,
+                        default=self.config_entry.options.get(
+                            CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_FEATURE_RESTART_POLICY,
+                        default=self.config_entry.options.get(
+                            CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
+                        ),
+                    ): bool,
+                }
+            ),
+            errors=None,
         )
