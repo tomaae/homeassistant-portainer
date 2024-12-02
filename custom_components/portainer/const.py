@@ -1,5 +1,7 @@
 """Constants used by the Portainer integration."""
+
 from homeassistant.const import Platform
+from typing import Final
 
 PLATFORMS = [
     Platform.SENSOR,
@@ -20,3 +22,11 @@ DEFAULT_SSL_VERIFY = True
 TO_REDACT = {
     "password",
 }
+
+CUSTOM_ATTRIBUTE_ARRAY = "_Custom"
+
+# fature switch
+CONF_FEATURE_HEALTH_CHECK: Final = "feature_switch_health_check"
+DEFAULT_FEATURE_HEALTH_CHECK = False
+CONF_FEATURE_RESTART_POLICY: Final = "feature_switch_restart_policy"
+DEFAULT_FEATURE_RESTART_POLICY = False

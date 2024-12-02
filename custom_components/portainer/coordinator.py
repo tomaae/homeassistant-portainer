@@ -1,4 +1,5 @@
 """Portainer coordinator."""
+
 from __future__ import annotations
 
 from asyncio import Lock as Asyncio_lock, wait_for as asyncio_wait_for
@@ -17,7 +18,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import DOMAIN, SCAN_INTERVAL
+
+from .const import (
+    DOMAIN,
+    SCAN_INTERVAL,
+    CUSTOM_ATTRIBUTE_ARRAY,
+    # fature switch
+    CONF_FEATURE_HEALTH_CHECK,
+    DEFAULT_FEATURE_HEALTH_CHECK,
+    CONF_FEATURE_RESTART_POLICY,
+    DEFAULT_FEATURE_RESTART_POLICY,
+)
 from .apiparser import parse_api
 from .api import PortainerAPI
 
@@ -38,6 +49,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.hass = hass
         self.name = config_entry.data[CONF_NAME]
         self.host = config_entry.data[CONF_HOST]
+
+        # init custom features
+        self.features = {
+            CONF_FEATURE_HEALTH_CHECK: config_entry.options.get(
+                CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK
+            ),
+            CONF_FEATURE_RESTART_POLICY: config_entry.options.get(
+                CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
+            ),
+        }
 
         self.data = {
             "endpoints": {},
@@ -169,6 +190,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 ensure_vals=[
                     {"name": "Name", "default": "unknown"},
                     {"name": "EndpointId", "default": eid},
+                    {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": {}},
                 ],
             )
             for cid in self.data["containers"]:
@@ -178,3 +200,52 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 self.data["containers"][cid]["Name"] = self.data["containers"][cid][
                     "Names"
                 ][0][1:]
+            # only if some custom feature is enabled
+            if (
+                self.features[CONF_FEATURE_HEALTH_CHECK]
+                or self.features[CONF_FEATURE_RESTART_POLICY]
+            ):
+                for cid in self.data["containers"]:
+                    self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = (
+                        parse_api(
+                            data={},
+                            source=self.api.query(
+                                f"endpoints/{eid}/docker/containers/{cid}/json",
+                                "get",
+                                {"all": True},
+                            ),
+                            vals=[
+                                {
+                                    "name": "Health_Status",
+                                    "source": "State/Health/Status",
+                                    "default": "unknown",
+                                },
+                                {
+                                    "name": "Restart_Policy",
+                                    "source": "HostConfig/RestartPolicy/Name",
+                                    "default": "unknown",
+                                },
+                            ],
+                            ensure_vals=[
+                                {"name": "Health_Status", "default": "unknown"},
+                                {"name": "Restart_Policy", "default": "unknown"},
+                            ],
+                        )
+                    )
+                    if self.features[CONF_FEATURE_HEALTH_CHECK]:
+                        self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
+                            "Health_Status"
+                        ] = self.data["containers"][cid][
+                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                        ][
+                            "Health_Status"
+                        ]
+                    if self.features[CONF_FEATURE_RESTART_POLICY]:
+                        self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
+                            "Restart_Policy"
+                        ] = self.data["containers"][cid][
+                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                        ][
+                            "Restart_Policy"
+                        ]
+                    del self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
