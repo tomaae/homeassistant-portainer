@@ -19,5 +19,16 @@
             "404": "API not found on this host.",
             "500": "Internal error."
         }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "description": "Enable or disable custom features.",
+                "data": {
+                    "feature_switch_health_check": "Health check",
+                    "feature_switch_restart_policy": "Restart policy"
+                }
+            }   
+        }
     }
 }
