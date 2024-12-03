@@ -62,6 +62,8 @@ List of supported custom attibutes:
 * "Health check" - Checks if the container is running correctly by executing a defined command.
 * "Restart policy" - Defines how and when the container restarts after stopping.
 
+![Configuration](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/options.png)
+
 # Development
 ## Translation
 To help out with the translation you need an account on Lokalise, the easiest way to get one is to [click here](https://lokalise.com/login/) then select "Log in with GitHub".
