@@ -19,6 +19,13 @@ DEFAULT_DEVICE_NAME = "Portainer"
 DEFAULT_SSL = False
 DEFAULT_SSL_VERIFY = True
 
+# attributes used in the entity id
+DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE = [
+    "Compose stack",
+    "Compose service",
+    "Environment",
+]
+
 TO_REDACT = {
     "password",
 }
