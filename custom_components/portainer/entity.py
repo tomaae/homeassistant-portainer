@@ -20,9 +20,14 @@ from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
-from .const import ATTRIBUTION, DOMAIN, CUSTOM_ATTRIBUTE_ARRAY
+from .const import (
+    ATTRIBUTION,
+    DOMAIN,
+    CUSTOM_ATTRIBUTE_ARRAY,
+    DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE,
+)
 from .coordinator import PortainerCoordinator
-from .helper import format_attribute
+from .helper import format_attribute, format_camel_case
 
 _LOGGER = getLogger(__name__)
 
@@ -50,7 +55,12 @@ async def async_add_entities(
             """Check entity exists."""
             entity_registry = er.async_get(hass)
             if uid:
-                unique_id = f"{obj._inst.lower()}-{obj.description.key}-{slugify(str(obj._data[obj.description.data_reference]).lower())}"
+                slug = config_entry.entry_id
+                for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
+                    if key in obj.extra_state_attributes:
+                        slug = slug + " " + obj.extra_state_attributes[key]
+                slug = format_camel_case(slug).lower()
+                unique_id = f"{obj._inst.lower()}-{obj.description.key}-{slugify(slug)}"
             else:
                 unique_id = f"{obj._inst.lower()}-{obj.description.key}"
 
@@ -130,7 +140,12 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
     def unique_id(self) -> str:
         """Return a unique id for this entity."""
         if self._uid:
-            return f"{self._inst.lower()}-{self.description.key}-{slugify(str(self._data[self.description.data_reference]).lower())}"
+            slug = self.coordinator.config_entry.entry_id
+            for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
+                if key in self.extra_state_attributes:
+                    slug = slug + " " + self.extra_state_attributes[key]
+            slug = format_camel_case(slug).lower()
+            return f"{self._inst.lower()}-{self.description.key}-{slugify(slug)}"
         else:
             return f"{self._inst.lower()}-{self.description.key}"
 
