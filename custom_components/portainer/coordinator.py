@@ -192,7 +192,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                         {"name": "Name", "default": "unknown"},
                         {"name": "EndpointId", "default": eid},
                         {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": {}},
-                ],
+                    ],
                 )
                 for cid in self.data["containers"]:
                     self.data["containers"][cid]["Environment"] = self.data["endpoints"][
