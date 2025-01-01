@@ -154,99 +154,98 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         self.data["containers"] = {}
         for eid in self.data["endpoints"]:
-            if self.data["endpoints"][eid]["Status"] == 1:
-                self.data["containers"] = parse_api(
-                    data=self.data["containers"],
-                    source=self.api.query(
-                        f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
-                    ),
-                    key="Id",
-                    vals=[
-                        {"name": "Id", "default": "unknown"},
-                        {"name": "Names", "default": "unknown"},
-                        {"name": "Image", "default": "unknown"},
-                        {"name": "State", "default": "unknown"},
-                        {"name": "Ports", "default": "unknown"},
-                        {
-                            "name": "Network",
-                            "source": "HostConfig/NetworkMode",
-                            "default": "unknown",
-                        },
-                        {
-                            "name": "Compose_Stack",
-                            "source": "Labels/com.docker.compose.project",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Service",
-                            "source": "Labels/com.docker.compose.service",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Version",
-                            "source": "Labels/com.docker.compose.version",
-                            "default": "",
-                        },
-                    ],
-                    ensure_vals=[
-                        {"name": "Name", "default": "unknown"},
-                        {"name": "EndpointId", "default": eid},
-                        {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": {}},
-                    ],
-                )
+            self.data["containers"] = parse_api(
+                data=self.data["containers"],
+                source=self.api.query(
+                    f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
+                ),
+                key="Id",
+                vals=[
+                    {"name": "Id", "default": "unknown"},
+                    {"name": "Names", "default": "unknown"},
+                    {"name": "Image", "default": "unknown"},
+                    {"name": "State", "default": "unknown"},
+                    {"name": "Ports", "default": "unknown"},
+                    {
+                        "name": "Network",
+                        "source": "HostConfig/NetworkMode",
+                        "default": "unknown",
+                    },
+                    {
+                        "name": "Compose_Stack",
+                        "source": "Labels/com.docker.compose.project",
+                        "default": "",
+                    },
+                    {
+                        "name": "Compose_Service",
+                        "source": "Labels/com.docker.compose.service",
+                        "default": "",
+                    },
+                    {
+                        "name": "Compose_Version",
+                        "source": "Labels/com.docker.compose.version",
+                        "default": "",
+                    },
+                ],
+                ensure_vals=[
+                    {"name": "Name", "default": "unknown"},
+                    {"name": "EndpointId", "default": eid},
+                    {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": {}},
+                ],
+            )
+            for cid in self.data["containers"]:
+                self.data["containers"][cid]["Environment"] = self.data["endpoints"][
+                    eid
+                ]["Name"]
+                self.data["containers"][cid]["Name"] = self.data["containers"][cid][
+                    "Names"
+                ][0][1:]
+            # only if some custom feature is enabled
+            if (
+                self.features[CONF_FEATURE_HEALTH_CHECK]
+                or self.features[CONF_FEATURE_RESTART_POLICY]
+            ):
                 for cid in self.data["containers"]:
-                    self.data["containers"][cid]["Environment"] = self.data["endpoints"][
-                        eid
-                    ]["Name"]
-                    self.data["containers"][cid]["Name"] = self.data["containers"][cid][
-                        "Names"
-                    ][0][1:]
-                # only if some custom feature is enabled
-                if (
-                    self.features[CONF_FEATURE_HEALTH_CHECK]
-                    or self.features[CONF_FEATURE_RESTART_POLICY]
-                ):
-                    for cid in self.data["containers"]:
-                        self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = (
-                            parse_api(
-                                data={},
-                                source=self.api.query(
-                                    f"endpoints/{eid}/docker/containers/{cid}/json",
-                                    "get",
-                                    {"all": True},
-                                ),
-                                vals=[
-                                    {
-                                        "name": "Health_Status",
-                                        "source": "State/Health/Status",
-                                        "default": "unknown",
-                                    },
-                                    {
-                                        "name": "Restart_Policy",
-                                        "source": "HostConfig/RestartPolicy/Name",
-                                        "default": "unknown",
-                                    },
-                                ],
-                                ensure_vals=[
-                                    {"name": "Health_Status", "default": "unknown"},
-                                    {"name": "Restart_Policy", "default": "unknown"},
-                                ],
-                            )
+                    self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = (
+                        parse_api(
+                            data={},
+                            source=self.api.query(
+                                f"endpoints/{eid}/docker/containers/{cid}/json",
+                                "get",
+                                {"all": True},
+                            ),
+                            vals=[
+                                {
+                                    "name": "Health_Status",
+                                    "source": "State/Health/Status",
+                                    "default": "unknown",
+                                },
+                                {
+                                    "name": "Restart_Policy",
+                                    "source": "HostConfig/RestartPolicy/Name",
+                                    "default": "unknown",
+                                },
+                            ],
+                            ensure_vals=[
+                                {"name": "Health_Status", "default": "unknown"},
+                                {"name": "Restart_Policy", "default": "unknown"},
+                            ],
                         )
-                        if self.features[CONF_FEATURE_HEALTH_CHECK]:
-                            self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
-                                "Health_Status"
-                            ] = self.data["containers"][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Health_Status"
-                            ]
-                        if self.features[CONF_FEATURE_RESTART_POLICY]:
-                            self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
-                                "Restart_Policy"
-                            ] = self.data["containers"][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Restart_Policy"
-                            ]
-                        del self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
+                    )
+                    if self.features[CONF_FEATURE_HEALTH_CHECK]:
+                        self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
+                            "Health_Status"
+                        ] = self.data["containers"][cid][
+                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                        ][
+                            "Health_Status"
+                        ]
+                    if self.features[CONF_FEATURE_RESTART_POLICY]:
+                        self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY][
+                            "Restart_Policy"
+                        ] = self.data["containers"][cid][
+                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                        ][
+                            "Restart_Policy"
+                        ]
+                    del self.data["containers"][cid][CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
