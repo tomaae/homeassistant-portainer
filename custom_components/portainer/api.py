@@ -1,4 +1,5 @@
 """Portainer API."""
+
 from logging import getLogger
 from threading import Lock
 from typing import Any

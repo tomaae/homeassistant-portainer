@@ -1,4 +1,5 @@
 """Definitions for sensor entities."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,7 +10,8 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.helpers.entity import EntityCategory
+
+from .const import CUSTOM_ATTRIBUTE_ARRAY
 
 
 DEVICE_ATTRIBUTES_ENDPOINTS = [
@@ -36,6 +38,8 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
     "Compose_Service",
     "Compose_Version",
     "Environment",
+    # add all attributes form CUSTOM_ATTRIBUTE_ARRAY
+    CUSTOM_ATTRIBUTE_ARRAY,
 ]
 
 

@@ -1,4 +1,5 @@
 """Portainer HA shared entity model."""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -19,7 +20,7 @@ from homeassistant.helpers.entity import DeviceInfo, Entity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import slugify
 
-from .const import ATTRIBUTION, DOMAIN
+from .const import ATTRIBUTION, DOMAIN, CUSTOM_ATTRIBUTE_ARRAY
 from .coordinator import PortainerCoordinator
 from .helper import format_attribute
 
@@ -181,7 +182,13 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         attributes = super().extra_state_attributes
         for variable in self.description.data_attributes_list:
             if variable in self._data:
-                attributes[format_attribute(variable)] = self._data[variable]
+                if variable != CUSTOM_ATTRIBUTE_ARRAY:
+                    attributes[format_attribute(variable)] = self._data[variable]
+                else:
+                    for custom_variable in self._data[variable]:
+                        attributes[format_attribute(custom_variable)] = self._data[
+                            variable
+                        ][custom_variable]
 
         return attributes
 
