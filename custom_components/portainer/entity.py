@@ -7,7 +7,7 @@ from logging import getLogger
 from typing import Any, Callable
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_ATTRIBUTION, CONF_HOST, CONF_NAME
+from homeassistant.const import ATTR_ATTRIBUTION, CONF_HOST, CONF_NAME, CONF_SSL
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import (
     entity_platform as ep,
@@ -55,14 +55,14 @@ async def async_add_entities(
             """Check entity exists."""
             entity_registry = er.async_get(hass)
             if uid:
-                slug = config_entry.entry_id
+                slug = ""
                 for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
-                    if key in obj.extra_state_attributes:
-                        slug = slug + " " + obj.extra_state_attributes[key]
+                    if key in obj._data:
+                        slug = slug + " " + obj._data[key]
                 slug = format_camel_case(slug).lower()
                 unique_id = f"{obj._inst.lower()}-{obj.description.key}-{slugify(slug)}"
             else:
-                unique_id = f"{obj._inst.lower()}-{obj.description.key}"
+                unique_id = f"{obj._inst.lower()}-{obj.description.key}-{slugify(coordinator.config_entry.entry_id).lower()}"
 
             entity_id = entity_registry.async_get_entity_id(
                 platform.domain, DOMAIN, unique_id
@@ -140,14 +140,14 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
     def unique_id(self) -> str:
         """Return a unique id for this entity."""
         if self._uid:
-            slug = self.coordinator.config_entry.entry_id
+            slug = ""
             for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
-                if key in self.extra_state_attributes:
-                    slug = slug + " " + self.extra_state_attributes[key]
+                if key in self._data:
+                    slug = slug + " " + self._data[key]
             slug = format_camel_case(slug).lower()
             return f"{self._inst.lower()}-{self.description.key}-{slugify(slug)}"
         else:
-            return f"{self._inst.lower()}-{self.description.key}"
+            return f"{self._inst.lower()}-{self.description.key}-{slugify(self.coordinator.config_entry.entry_id).lower()}"
 
     @property
     def available(self) -> bool:
@@ -175,14 +175,23 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 dev_connection_value = dev_connection_value[6:]
                 dev_connection_value = self._data[dev_connection_value]
 
+        # handle multiple environments on server side
+        if self.description.ha_group == dev_group and dev_group == "local":
+            dev_group = self._data["Environment"]
+            dev_connection_value = f"{self.coordinator.name}_{dev_group}"
+
+        # make connection unique accross configurations
+        dev_connection_value += f"_{self.coordinator.config_entry.entry_id}"
+
         if self.description.ha_group == "System":
+            _LOGGER.warning("config id: %s", self.coordinator.config_entry.entry_id)
             return DeviceInfo(
                 connections={(dev_connection, f"{dev_connection_value}")},
                 identifiers={(dev_connection, f"{dev_connection_value}")},
                 name=f"{self._inst} {dev_group}",
                 manufacturer=f"{self.manufacturer}",
                 sw_version=f"{self.sw_version}",
-                configuration_url=f"http://{self.coordinator.config_entry.data[CONF_HOST]}",
+                configuration_url=f"http{'s' if self.coordinator.config_entry.data[CONF_SSL] else ''}://{self.coordinator.config_entry.data[CONF_HOST]}",
             )
         else:
             return DeviceInfo(
@@ -206,6 +215,11 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                         ][custom_variable]
 
         return attributes
+
+    @property
+    def icon(self) -> str:
+        """Return the icon."""
+        return self.description.icon
 
     async def start(self):
         """Run function."""

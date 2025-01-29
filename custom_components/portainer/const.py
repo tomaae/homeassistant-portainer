@@ -21,9 +21,9 @@ DEFAULT_SSL_VERIFY = True
 
 # attributes used in the entity id
 DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE = [
-    "Compose stack",
-    "Compose service",
     "Environment",
+    "Name",
+    "ConfigEntryId",
 ]
 
 TO_REDACT = {
