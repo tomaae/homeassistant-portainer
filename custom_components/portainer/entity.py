@@ -176,7 +176,7 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 dev_connection_value = self._data[dev_connection_value]
 
         # handle multiple environments on server side
-        if self.description.ha_group == dev_group and dev_group == "local":
+        if self.description.ha_group == dev_group and dev_group == "local" and "Environment" in self._data:
             dev_group = self._data["Environment"]
             dev_connection_value = f"{self.coordinator.name}_{dev_group}"
 
