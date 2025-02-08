@@ -15,7 +15,6 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .const import (
@@ -43,7 +42,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def __init__(self, hass: HomeAssistant, config_entry: ConfigEntry) -> None:
         """Initialize PortainerController."""
         super().__init__(
-            hass, _LOGGER, name=DOMAIN, update_interval=timedelta(seconds=SCAN_INTERVAL)
+            hass,
+            _LOGGER,
+            name=f"{DOMAIN}_{config_entry.entry_id}",
+            update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
         self.hass = hass
         self.name = config_entry.data[CONF_NAME]
@@ -78,6 +80,8 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self._systemstats_errored = []
         self.datasets_hass_device_id = None
 
+        self.config_entry.async_on_unload(self.async_shutdown)
+
     # ---------------------------
     #   connected
     # ---------------------------
@@ -103,7 +107,6 @@ class PortainerCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(error) from error
 
         self.lock.release()
-        async_dispatcher_send(self.hass, "update_sensors", self)
         return self.data
 
     # ---------------------------
