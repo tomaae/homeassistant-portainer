@@ -21,7 +21,8 @@ from custom_components.portainer.const import DOMAIN
 
 from .coordinator import PortainerCoordinator
 from .entity import PortainerEntity, async_create_sensors
-from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES # noqa: F401
+from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
+
 
 # ---------------------------
 #   async_setup_entry
