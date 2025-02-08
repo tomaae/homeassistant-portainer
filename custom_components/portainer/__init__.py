@@ -51,7 +51,7 @@ async def async_unload_entry(hass: HomeAssistant, config_entry: ConfigEntry):
     if not entry_data:
         return False  # Nothing to unload
 
-    # Unload platforms (sensors, switches, etc.)
+    # Unload platforms
     unload_ok = await hass.config_entries.async_unload_platforms(
         config_entry, PLATFORMS
     )

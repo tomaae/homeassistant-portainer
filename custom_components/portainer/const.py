@@ -19,7 +19,7 @@ DEFAULT_DEVICE_NAME = "Portainer"
 DEFAULT_SSL = False
 DEFAULT_SSL_VERIFY = True
 
-# attributes used in the entity id
+# attributes used in the entity unique_id
 DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE = [
     "Environment",
     "Name",

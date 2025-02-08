@@ -25,7 +25,7 @@ _LOGGER = getLogger(__name__)
 
 
 # ---------------------------
-#   async_get_entites_from_coordinator
+#   async_create_sensors
 # ---------------------------
 async def async_create_sensors(
     coordinator: PortainerCoordinator, descriptions: list, dispatcher: dict
