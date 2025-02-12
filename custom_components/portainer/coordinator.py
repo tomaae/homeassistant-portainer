@@ -62,7 +62,8 @@ class PortainerCoordinator(DataUpdateCoordinator):
             ),
         }
 
-        self.data = {
+        # init raw data
+        self.raw_data = {
             "endpoints": {},
             "containers": {},
         }
@@ -100,6 +101,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             return
 
         try:
+            self.raw_data = {}
             await self.hass.async_add_executor_job(self.get_endpoints)
             await self.hass.async_add_executor_job(self.get_containers)
         except Exception as error:
@@ -107,14 +109,17 @@ class PortainerCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(error) from error
 
         self.lock.release()
-        return self.data
+        _LOGGER.debug("data: %s", self.raw_data)
+        return self.raw_data
 
     # ---------------------------
     #   get_endpoints
     # ---------------------------
     def get_endpoints(self) -> None:
         """Get endpoints."""
-        self.data["endpoints"] = parse_api(
+
+        self.raw_data["endpoints"] = {}
+        self.raw_data["endpoints"] = parse_api(
             data={},
             source=self.api.query("endpoints"),
             key="Id",
@@ -126,13 +131,13 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 {"name": "Status", "default": 0},
             ],
         )
-        if not self.data["endpoints"]:
+        if not self.raw_data["endpoints"]:
             return
 
-        for eid in self.data["endpoints"]:
-            self.data["endpoints"][eid] = parse_api(
-                data=self.data["endpoints"][eid],
-                source=self.data["endpoints"][eid]["Snapshots"][0],
+        for eid in self.raw_data["endpoints"]:
+            self.raw_data["endpoints"][eid] = parse_api(
+                data=self.raw_data["endpoints"][eid],
+                source=self.raw_data["endpoints"][eid]["Snapshots"][0],
                 vals=[
                     {"name": "DockerVersion", "default": "unknown"},
                     {"name": "Swarm", "default": False},
@@ -149,18 +154,18 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     {"name": "ConfigEntryId", "default": self.config_entry_id},
                 ],
             )
-            del self.data["endpoints"][eid]["Snapshots"]
+            del self.raw_data["endpoints"][eid]["Snapshots"]
 
     # ---------------------------
     #   get_containers
     # ---------------------------
     def get_containers(self) -> None:
-        self.data["containers"] = {}
-        for eid in self.data["endpoints"]:
-            if self.data["endpoints"][eid]["Status"] == 1:
-                self.data["containers"][eid] = {}
-                self.data["containers"][eid] = parse_api(
-                    data=self.data["containers"][eid],
+        self.raw_data["containers"] = {}
+        for eid in self.raw_data["endpoints"]:
+            if self.raw_data["endpoints"][eid]["Status"] == 1:
+                self.raw_data["containers"][eid] = {}
+                self.raw_data["containers"][eid] = parse_api(
+                    data=self.raw_data["containers"][eid],
                     source=self.api.query(
                         f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
                     ),
@@ -195,27 +200,30 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     ensure_vals=[
                         {"name": "Name", "default": "unknown"},
                         {"name": "EndpointId", "default": eid},
-                        {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": {}},
+                        {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": None},
                     ],
                 )
-                for cid in self.data["containers"][eid]:
-                    self.data["containers"][eid][cid]["Environment"] = self.data[
-                        "endpoints"
-                    ][eid]["Name"]
-                    self.data["containers"][eid][cid]["Name"] = self.data["containers"][
-                        eid
-                    ][cid]["Names"][0][1:]
-                    self.data["containers"][eid][cid][
+
+                for cid in self.raw_data["containers"][eid]:
+                    self.raw_data["containers"][eid][cid]["Environment"] = (
+                        self.raw_data["endpoints"][eid]["Name"]
+                    )
+                    self.raw_data["containers"][eid][cid]["Name"] = self.raw_data[
+                        "containers"
+                    ][eid][cid]["Names"][0][1:]
+                    self.raw_data["containers"][eid][cid][
                         "ConfigEntryId"
                     ] = self.config_entry_id
+                    # avoid shared references given in default
+                    self.raw_data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY] = {}
 
                 # only if some custom feature is enabled
                 if (
                     self.features[CONF_FEATURE_HEALTH_CHECK]
                     or self.features[CONF_FEATURE_RESTART_POLICY]
                 ):
-                    for cid in self.data["containers"][eid]:
-                        self.data["containers"][eid][cid][
+                    for cid in self.raw_data["containers"][eid].keys():
+                        self.raw_data["containers"][eid][cid][
                             CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                         ] = parse_api(
                             data={},
@@ -242,28 +250,28 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             ],
                         )
                         if self.features[CONF_FEATURE_HEALTH_CHECK]:
-                            self.data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY][
-                                "Health_Status"
-                            ] = self.data["containers"][eid][cid][
+                            self.raw_data["containers"][eid][cid][
+                                CUSTOM_ATTRIBUTE_ARRAY
+                            ]["Health_Status"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                             ][
                                 "Health_Status"
                             ]
                         if self.features[CONF_FEATURE_RESTART_POLICY]:
-                            self.data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY][
-                                "Restart_Policy"
-                            ] = self.data["containers"][eid][cid][
+                            self.raw_data["containers"][eid][cid][
+                                CUSTOM_ATTRIBUTE_ARRAY
+                            ]["Restart_Policy"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                             ][
                                 "Restart_Policy"
                             ]
-                        del self.data["containers"][eid][cid][
+                        del self.raw_data["containers"][eid][cid][
                             CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                         ]
 
         # ensure every environment has own set of containers
-        self.data["containers"] = {
+        self.raw_data["containers"] = {
             f"{eid}{cid}": value
-            for eid, t_dict in self.data["containers"].items()
+            for eid, t_dict in self.raw_data["containers"].items()
             for cid, value in t_dict.items()
         }

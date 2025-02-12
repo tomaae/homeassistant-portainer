@@ -99,7 +99,7 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 ]
             super()._handle_coordinator_update()
         except KeyError:
-            _LOGGER.warning("Error while updating entity %s", self._data)
+            _LOGGER.debug("Error while updating entity %s", self.unique_id)
             pass
 
     @property
