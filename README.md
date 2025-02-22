@@ -49,7 +49,7 @@ Setup this integration for your Portainer in Home Assistant via `Configuration -
 You can add this integration several times for different portainer instances.
 
 * "Name of the integration" - Friendly name for this Portainer instance
-* "Host" - Use hostname or IP and port (example: 192.168.0.2:9000)
+* "Host" - Use hostname or IP and port (example: portainer.domain.tld or 192.168.0.2:9000)
 * "Access token" - Use access token from previous step
 * "Use SSL" - Connect to portainer using SSL
 * "Verify SSL certificate" - Validate SSL certificate (must be trusted certificate)
