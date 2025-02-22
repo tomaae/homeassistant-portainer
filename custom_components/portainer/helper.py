@@ -19,6 +19,16 @@ def format_attribute(attr: str) -> str:
 
 
 # ---------------------------
+#   formatCamelCase
+# ---------------------------
+def format_camel_case(attr: str) -> str:
+    """Format attribute."""
+    res = format_attribute(attr)
+    res = res.replace(" ", "")
+    return res
+
+
+# ---------------------------
 #   as_local
 # ---------------------------
 def as_local(dattim: datetime) -> datetime:
