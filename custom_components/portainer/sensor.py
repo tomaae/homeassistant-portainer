@@ -2,21 +2,26 @@
 
 from __future__ import annotations
 
-from logging import getLogger
 from datetime import date, datetime
 from decimal import Decimal
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import StateType
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.dispatcher import (
+    async_dispatcher_connect,
+)
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers import (
+    entity_platform as ep,
+)
+from homeassistant.helpers.typing import StateType
 
-from .entity import PortainerEntity, async_add_entities
+from custom_components.portainer.const import DOMAIN
+
 from .coordinator import PortainerCoordinator
+from .entity import PortainerEntity, async_create_sensors
 from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
-
-_LOGGER = getLogger(__name__)
 
 
 # ---------------------------
@@ -25,15 +30,54 @@ _LOGGER = getLogger(__name__)
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
-    _async_add_entities: AddEntitiesCallback,
-) -> None:
-    """Set up entry for portainer component."""
+    async_add_entities_callback: AddEntitiesCallback,
+):
+    """Set up the sensor platform for a specific configuration entry."""
+
+    # Set up entry for portainer component.
     dispatcher = {
         "PortainerSensor": PortainerSensor,
         "EndpointSensor": EndpointSensor,
         "ContainerSensor": ContainerSensor,
     }
-    await async_add_entities(hass, config_entry, dispatcher)
+
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
+
+    platform = ep.async_get_current_platform()
+
+    services = platform.platform.SENSOR_SERVICES
+    descriptions = platform.platform.SENSOR_TYPES
+
+    for service in services:
+        if service[0] not in hass.services.async_services().get(DOMAIN, {}):
+            platform.async_register_entity_service(service[0], service[1], service[2])
+
+    entities = await async_create_sensors(coordinator, descriptions, dispatcher)
+    async_add_entities_callback(entities, update_before_add=True)
+
+    @callback
+    async def async_update_controller(coordinator):
+        """Update entities when data changes."""
+        platform = ep.async_get_current_platform()
+        existing_entities = platform.entities
+        new_entities = []
+        entities = await async_create_sensors(coordinator, descriptions, dispatcher)
+        for entity in entities:
+            unique_id = entity.unique_id
+            if unique_id in [e.unique_id for e in existing_entities.values()]:
+                continue
+
+            new_entities.append(entity)
+
+        if new_entities:
+            async_add_entities_callback(new_entities, update_before_add=True)
+
+    # Connect listener per config_entry
+    config_entry.async_on_unload(
+        async_dispatcher_connect(
+            hass, f"{config_entry.entry_id}_update", async_update_controller
+        )
+    )
 
 
 # ---------------------------
