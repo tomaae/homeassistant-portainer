@@ -12,6 +12,9 @@ on:
       - 'tests/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
 
   black:
@@ -19,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code from GitHub
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v4"
       - name: Black Code Format Check
         uses: lgeiger/black-action@master
         with:
@@ -30,11 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code from GitHub
-        uses: "actions/checkout@v3"
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
+        uses: "actions/checkout@v4"
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.13'
       - name: Generate Requirements lists
         run: |
           python3 .github/generate_requirements.py
@@ -57,11 +60,13 @@ jobs:
     name: Security check - Bandit
     needs: [tests]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out code from GitHub
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v4"
       - name: Security check - Bandit
-        uses: ioggstream/bandit-report-artifacts@v0.0.2
+        uses: ioggstream/bandit-report-artifacts@v1.7.4
         with:
           project_path: custom_components/portainer
           config_file: .github/bandit.yaml
@@ -76,8 +81,10 @@ jobs:
     name: Check hassfest
     needs: [tests]
     runs-on: "ubuntu-latest"
+    permissions:
+      contents: read
     steps:
       - name: Check out code from GitHub
-        uses: "actions/checkout@v3"
+        uses: "actions/checkout@v4"
       - name: Run hassfest
         uses: home-assistant/actions/hassfest@master

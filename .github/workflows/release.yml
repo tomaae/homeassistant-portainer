@@ -9,18 +9,22 @@ jobs:
   release_zip:
     name: Prepare release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Extract Tag Without `v`
+      - name: Get version number
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/} # Remove refs/tags/
           TAG_NAME=${TAG_NAME#v}            # Remove leading v if present
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-      - name: Update version
+
+      - name: Update version number in manifest
         run: |
           python3 /home/runner/work/homeassistant-portainer/homeassistant-portainer/.github/update_version.py --version $TAG_NAME
+
       - name: Zip portainer dir
         run: |
           cd /home/runner/work/homeassistant-portainer/homeassistant-portainer/custom_components/portainer
@@ -38,14 +42,16 @@ jobs:
   releasenotes:
     name: Prepare releasenotes
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v1
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          python-version: 3.8
+          python-version: 3.13
 
       - name: Install requirements
         run: |
