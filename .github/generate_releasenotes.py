@@ -119,7 +119,7 @@ if UPDATERELEASE == "yes":
     VERSION = str(sys.argv[6]).replace("refs/tags/", "")
     RELEASE = REPO.get_release(VERSION)
     RELEASE.update_release(
-        name=f"portainer {VERSION}",
+        name=f"Portainer {VERSION}",
         message=BODY.format(
             version=VERSION,
             changes=CHANGES.format(
