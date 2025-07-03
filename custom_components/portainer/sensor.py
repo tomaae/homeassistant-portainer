@@ -100,7 +100,18 @@ class PortainerSensor(PortainerEntity, SensorEntity):
     @property
     def native_value(self) -> StateType | date | datetime | Decimal:
         """Return the value reported by the sensor."""
-        return self._data[self.description.data_attribute]
+        # Handle nested attribute paths like "_Custom/Update_Available"
+        if "/" in self.description.data_attribute:
+            parts = self.description.data_attribute.split("/")
+            value = self._data
+            for part in parts:
+                if isinstance(value, dict) and part in value:
+                    value = value[part]
+                else:
+                    return None
+            return value
+        else:
+            return self._data[self.description.data_attribute]
 
     @property
     def native_unit_of_measurement(self) -> str | None:
