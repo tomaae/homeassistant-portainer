@@ -282,22 +282,18 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             ][
                                 "Restart_Policy"
                             ]
-                                if self.features[CONF_FEATURE_UPDATE_CHECK]:
-                                    # Check if image update is available
-                                    update_available = self.check_image_updates(
-                                        eid, self.raw_data["containers"][eid][cid]
-                                    )
-                                    self.raw_data["containers"][eid][cid][
-                                        CUSTOM_ATTRIBUTE_ARRAY
-                                    ]["Update_Available"] = update_available
-                                    
-                                del self.raw_data["containers"][eid][cid][
-                                    CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                                ]
-        
-                        # After processing all containers for this endpoint, update last_update_check if update check was performed
-                        if self.features[CONF_FEATURE_UPDATE_CHECK] and self.should_check_updates():
-                            self.last_update_check = datetime.now()
+                        if self.features[CONF_FEATURE_UPDATE_CHECK]:
+                            # Check if image update is available
+                            update_available = self.check_image_updates(
+                                eid, self.raw_data["containers"][eid][cid]
+                            )
+                            self.raw_data["containers"][eid][cid][
+                                CUSTOM_ATTRIBUTE_ARRAY
+                            ]["Update_Available"] = update_available
+                            
+                        del self.raw_data["containers"][eid][cid][
+                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                        ]
 
         # ensure every environment has own set of containers
         self.raw_data["containers"] = {
