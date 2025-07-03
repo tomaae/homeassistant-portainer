@@ -32,7 +32,7 @@ TO_REDACT = {
 
 CUSTOM_ATTRIBUTE_ARRAY = "_Custom"
 
-# fature switch
+# feature switch
 CONF_FEATURE_HEALTH_CHECK: Final = "feature_switch_health_check"
 DEFAULT_FEATURE_HEALTH_CHECK = False
 CONF_FEATURE_RESTART_POLICY: Final = "feature_switch_restart_policy"
