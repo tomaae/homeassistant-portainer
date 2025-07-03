@@ -75,6 +75,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
         )
         self.last_update_check = None
         self.cached_update_results = {}
+        self.cached_registry_responses = {}  # Cache registry responses per image name
 
         # init raw data
         self.raw_data = {
@@ -281,18 +282,22 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             ][
                                 "Restart_Policy"
                             ]
-                        if self.features[CONF_FEATURE_UPDATE_CHECK]:
-                            # Check if image update is available
-                            update_available = self.check_image_updates(
-                                eid, self.raw_data["containers"][eid][cid]
-                            )
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Available"] = update_available
-                            
-                        del self.raw_data["containers"][eid][cid][
-                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                        ]
+                                if self.features[CONF_FEATURE_UPDATE_CHECK]:
+                                    # Check if image update is available
+                                    update_available = self.check_image_updates(
+                                        eid, self.raw_data["containers"][eid][cid]
+                                    )
+                                    self.raw_data["containers"][eid][cid][
+                                        CUSTOM_ATTRIBUTE_ARRAY
+                                    ]["Update_Available"] = update_available
+                                    
+                                del self.raw_data["containers"][eid][cid][
+                                    CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                                ]
+        
+                        # After processing all containers for this endpoint, update last_update_check if update check was performed
+                        if self.features[CONF_FEATURE_UPDATE_CHECK] and self.should_check_updates():
+                            self.last_update_check = datetime.now()
 
         # ensure every environment has own set of containers
         self.raw_data["containers"] = {
@@ -324,42 +329,44 @@ class PortainerCoordinator(DataUpdateCoordinator):
             
         # Check if we've passed the next check time since last check
         return self.last_update_check < next_check and now >= next_check
-
-    # ---------------------------
-    #   check_image_updates
-    # ---------------------------
     def check_image_updates(self, eid: str, container_data: dict) -> bool:
         """Check if an image update is available for a container."""
         container_id = container_data.get("Id", "")
         
+        # Get the current image name (without tag if present)
+        image_name = container_data.get("Image", "")
+        if not image_name:
+            self.cached_update_results[container_id] = False
+            return False
+
+        # Parse image name and tag
+        if ":" in image_name:
+            image_repo, image_tag = image_name.rsplit(":", 1)
+        else:
+            image_repo = image_name
+            image_tag = "latest"
+
+        image_key = f"{image_repo}:{image_tag}"
+
         # Use cached result if available and not time to check
         if not self.should_check_updates() and container_id in self.cached_update_results:
             return self.cached_update_results[container_id]
-            
+
         try:
-            # Get the current image name (without tag if present)
-            image_name = container_data.get("Image", "")
-            if not image_name:
-                self.cached_update_results[container_id] = False
-                return False
-
-            # Parse image name and tag
-            if ":" in image_name:
-                image_repo, image_tag = image_name.rsplit(":", 1)
-            else:
-                image_repo = image_name
-                image_tag = "latest"
-
             # Only query registry if it's time to check
             if self.should_check_updates():
                 _LOGGER.debug("Checking for updates for container %s (image: %s)", 
                              container_data.get("Name", ""), image_name)
                 
-                # Query the registry for the latest image info
-                registry_response = self.api.query(
-                    f"endpoints/{eid}/docker/images/{image_repo}:{image_tag}/json",
-                    "get",
-                )
+                # Use cached registry response if available
+                if image_key in self.cached_registry_responses:
+                    registry_response = self.cached_registry_responses[image_key]
+                else:
+                    registry_response = self.api.query(
+                        f"endpoints/{eid}/docker/images/{image_repo}:{image_tag}/json",
+                        "get",
+                    )
+                    self.cached_registry_responses[image_key] = registry_response
 
                 if not registry_response:
                     self.cached_update_results[container_id] = False
@@ -389,4 +396,5 @@ class PortainerCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Error checking image updates for container: %s", e)
             self.cached_update_results[container_id] = False
 
+        return False
         return False
