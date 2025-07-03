@@ -23,12 +23,12 @@
     "options": {
         "step": {
             "init": {
-                "description": "Enable or disable custom features.",
+                "description": "Configure custom features and update check settings.",
                 "data": {
-                    "feature_switch_health_check": "Health check",
-                    "feature_switch_restart_policy": "Restart policy",
-                    "feature_switch_update_check": "Update check (24h interval)",
-                    "update_check_hour": "Update check hour (0-23)"
+                    "feature_switch_health_check": "Enable Health Check",
+                    "feature_switch_restart_policy": "Enable Restart Policy",
+                    "feature_switch_update_check": "Enable Update Check (checks every 24 hours)",
+                    "update_check_hour": "Update Check Time (hour 0-23)"
                 }
             }   
         }
