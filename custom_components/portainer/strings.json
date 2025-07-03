@@ -26,7 +26,9 @@
                 "description": "Enable or disable custom features.",
                 "data": {
                     "feature_switch_health_check": "Health check",
-                    "feature_switch_restart_policy": "Restart policy"
+                    "feature_switch_restart_policy": "Restart policy",
+                    "feature_switch_update_check": "Update check (24h interval)",
+                    "update_check_hour": "Update check hour (0-23)"
                 }
             }   
         }

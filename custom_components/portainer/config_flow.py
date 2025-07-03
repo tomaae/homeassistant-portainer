@@ -29,6 +29,10 @@ from .const import (
     DEFAULT_FEATURE_HEALTH_CHECK,
     CONF_FEATURE_RESTART_POLICY,
     DEFAULT_FEATURE_RESTART_POLICY,
+    CONF_FEATURE_UPDATE_CHECK,
+    DEFAULT_FEATURE_UPDATE_CHECK,
+    CONF_UPDATE_CHECK_HOUR,
+    DEFAULT_UPDATE_CHECK_HOUR,
 )
 from .api import PortainerAPI
 
@@ -161,6 +165,18 @@ class PortainerOptionsFlow(OptionsFlow):
                             CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
                         ),
                     ): bool,
+                    vol.Optional(
+                        CONF_FEATURE_UPDATE_CHECK,
+                        default=self.config_entry.options.get(
+                            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_UPDATE_CHECK_HOUR,
+                        default=self.config_entry.options.get(
+                            CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
+                        ),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
                 }
             ),
             errors=None,
