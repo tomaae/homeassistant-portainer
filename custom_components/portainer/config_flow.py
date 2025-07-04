@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -18,8 +18,8 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .api import PortainerAPI
+from .const import CONF_FEATURE_HEALTH_CHECK  # feature switch
 from .const import (
-    CONF_FEATURE_HEALTH_CHECK,  # feature switch
     CONF_FEATURE_RESTART_POLICY,
     CONF_FEATURE_UPDATE_CHECK,
     CONF_UPDATE_CHECK_HOUR,
@@ -51,11 +51,11 @@ def configured_instances(hass):
 # ---------------------------
 #   PortainerConfigFlow
 # ---------------------------
-class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
+class PortainerConfigFlow(ConfigFlow):
     """PortainerConfigFlow class."""
 
+    domain = DOMAIN
     VERSION = 1
-    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
     async def async_step_import(
         self, user_input: dict[str, Any] | None = None
@@ -129,6 +129,7 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    @staticmethod
     @callback
     def async_get_options_flow(config_entry):
         return PortainerOptionsFlow()
