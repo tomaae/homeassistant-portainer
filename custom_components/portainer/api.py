@@ -5,7 +5,6 @@ from threading import Lock
 from typing import Any
 
 from requests import get as requests_get, post as requests_post
-from voluptuous import Optional
 
 from homeassistant.core import HomeAssistant
 
@@ -62,7 +61,7 @@ class PortainerAPI(object):
     # ---------------------------
     def query(
         self, service: str, method: str = "get", params: dict[str, Any] | None = None
-    ) -> Optional[list]:
+    ) -> list | None:
         """Retrieve data from Portainer."""
         if params is None:
             params = {}
