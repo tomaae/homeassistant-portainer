@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from asyncio import Lock as Asyncio_lock, wait_for as asyncio_wait_for
-from datetime import timedelta, datetime
+from asyncio import Lock as Asyncio_lock
+from asyncio import wait_for as asyncio_wait_for
+from datetime import datetime, timedelta
 from logging import getLogger
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,24 +16,24 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
+from .api import PortainerAPI
+from .apiparser import parse_api
+from .const import CONF_FEATURE_HEALTH_CHECK  # fature switch
 from .const import (
+    CONF_FEATURE_RESTART_POLICY,
+    CONF_FEATURE_UPDATE_CHECK,
+    CONF_UPDATE_CHECK_HOUR,
+    CUSTOM_ATTRIBUTE_ARRAY,
+    DEFAULT_FEATURE_HEALTH_CHECK,
+    DEFAULT_FEATURE_RESTART_POLICY,
+    DEFAULT_FEATURE_UPDATE_CHECK,
+    DEFAULT_UPDATE_CHECK_HOUR,
     DOMAIN,
     SCAN_INTERVAL,
-    CUSTOM_ATTRIBUTE_ARRAY,
-    # fature switch
-    CONF_FEATURE_HEALTH_CHECK,
-    DEFAULT_FEATURE_HEALTH_CHECK,
-    CONF_FEATURE_RESTART_POLICY,
-    DEFAULT_FEATURE_RESTART_POLICY,
-    CONF_FEATURE_UPDATE_CHECK,
-    DEFAULT_FEATURE_UPDATE_CHECK,
-    CONF_UPDATE_CHECK_HOUR,
-    DEFAULT_UPDATE_CHECK_HOUR,
 )
-from .apiparser import parse_api
-from .api import PortainerAPI
 
 _LOGGER = getLogger(__name__)
 
@@ -94,11 +95,19 @@ class PortainerCoordinator(DataUpdateCoordinator):
             config_entry.data[CONF_SSL],
             config_entry.data[CONF_VERIFY_SSL],
         )
-
+        self.config_entry = config_entry
         self._systemstats_errored: list = []
         self.datasets_hass_device_id = None
 
         self.config_entry.async_on_unload(self.async_shutdown)
+
+    # ---------------------------
+    #   async_shutdown
+    # ---------------------------
+    async def async_shutdown(self) -> None:
+        """Shutdown coordinator."""
+        if self.lock.locked():
+            self.lock.release()
 
     # ---------------------------
     #   connected
@@ -127,6 +136,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
 
         self.lock.release()
         _LOGGER.debug("data: %s", self.raw_data)
+
+        # Notify entities of new data
+        async_dispatcher_send(self.hass, f"{self.config_entry.entry_id}_update", self)
+
         return self.raw_data
 
     # ---------------------------
@@ -369,10 +382,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 if image_key in self.cached_registry_responses:
                     registry_response = self.cached_registry_responses[image_key]
                 else:
-                    registry_response = self.api.query(
+                    api_result = self.api.query(
                         f"endpoints/{eid}/docker/images/{image_repo}:{image_tag}/json",
                         "get",
                     )
+                    if isinstance(api_result, list) and api_result:
+                        registry_response = api_result[0]
+                    elif isinstance(api_result, dict):
+                        registry_response = api_result
+                    else:
+                        registry_response = {}
                     self.cached_registry_responses[image_key] = registry_response
 
                 if not registry_response:
