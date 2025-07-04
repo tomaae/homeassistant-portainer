@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -51,11 +51,11 @@ def configured_instances(hass):
 # ---------------------------
 #   PortainerConfigFlow
 # ---------------------------
-class PortainerConfigFlow(ConfigFlow):
+class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
     """PortainerConfigFlow class."""
 
-    domain = DOMAIN
     VERSION = 1
+    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
     async def async_step_import(
         self, user_input: dict[str, Any] | None = None
@@ -113,15 +113,6 @@ class PortainerConfigFlow(ConfigFlow):
         self, user_input: dict[str, Any] | None, errors: dict[str, Any] | None = None
     ) -> FlowResult:
         """Show the configuration form."""
-        if user_input is None:
-            user_input = {
-                CONF_NAME: DEFAULT_DEVICE_NAME,
-                CONF_HOST: DEFAULT_HOST,
-                CONF_API_KEY: "",
-                CONF_SSL: DEFAULT_SSL,
-                CONF_VERIFY_SSL: DEFAULT_SSL_VERIFY,
-            }
-
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -138,18 +129,17 @@ class PortainerConfigFlow(ConfigFlow):
             errors=errors,
         )
 
-    @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return PortainerOptionsFlow(config_entry)
+        return PortainerOptionsFlow()
 
 
 class PortainerOptionsFlow(OptionsFlow):
     """Handle options flow for My Integration."""
 
-    def __init__(self, config_entry):
-        """Initialize options flow."""
-        self.config_entry = config_entry
+    @property
+    def config_entry(self):
+        return self.hass.config_entries.async_get_entry(self.handler)
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
