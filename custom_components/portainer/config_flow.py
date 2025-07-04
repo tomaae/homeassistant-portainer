@@ -6,8 +6,7 @@ from logging import getLogger
 from typing import Any
 
 import voluptuous as vol
-
-from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -18,23 +17,22 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
+from .api import PortainerAPI
 from .const import (
+    CONF_FEATURE_HEALTH_CHECK,  # feature switch
+    CONF_FEATURE_RESTART_POLICY,
+    CONF_FEATURE_UPDATE_CHECK,
+    CONF_UPDATE_CHECK_HOUR,
     DEFAULT_DEVICE_NAME,
+    DEFAULT_FEATURE_HEALTH_CHECK,
+    DEFAULT_FEATURE_RESTART_POLICY,
+    DEFAULT_FEATURE_UPDATE_CHECK,
     DEFAULT_HOST,
     DEFAULT_SSL,
     DEFAULT_SSL_VERIFY,
-    DOMAIN,
-    # feature switch
-    CONF_FEATURE_HEALTH_CHECK,
-    DEFAULT_FEATURE_HEALTH_CHECK,
-    CONF_FEATURE_RESTART_POLICY,
-    DEFAULT_FEATURE_RESTART_POLICY,
-    CONF_FEATURE_UPDATE_CHECK,
-    DEFAULT_FEATURE_UPDATE_CHECK,
-    CONF_UPDATE_CHECK_HOUR,
     DEFAULT_UPDATE_CHECK_HOUR,
+    DOMAIN,
 )
-from .api import PortainerAPI
 
 _LOGGER = getLogger(__name__)
 
@@ -149,7 +147,7 @@ class PortainerConfigFlow(ConfigFlow):
 class PortainerOptionsFlow(OptionsFlow):
     """Handle options flow for My Integration."""
 
-    def __init__(self, config_entry):
+    def __init__(self, config_entry: ConfigEntry) -> None:
         """Initialize options flow."""
         self.config_entry = config_entry
 
