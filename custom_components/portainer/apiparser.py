@@ -100,7 +100,7 @@ def parse_api(
 ) -> dict:
     """Get data from API."""
     debug = _LOGGER.getEffectiveLevel() == 10
-    if type(source) == dict:
+    if isinstance(source, dict):
         tmp = source
         source = [tmp]
 

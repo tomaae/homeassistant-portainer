@@ -6,8 +6,7 @@ from logging import getLogger
 from typing import Any
 
 import voluptuous as vol
-
-from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow, OptionsFlow
+from homeassistant import config_entries
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -18,19 +17,22 @@ from homeassistant.const import (
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
+from .api import PortainerAPI
+from .const import CONF_FEATURE_HEALTH_CHECK  # feature switch
 from .const import (
+    CONF_FEATURE_RESTART_POLICY,
+    CONF_FEATURE_UPDATE_CHECK,
+    CONF_UPDATE_CHECK_HOUR,
     DEFAULT_DEVICE_NAME,
+    DEFAULT_FEATURE_HEALTH_CHECK,
+    DEFAULT_FEATURE_RESTART_POLICY,
+    DEFAULT_FEATURE_UPDATE_CHECK,
     DEFAULT_HOST,
     DEFAULT_SSL,
     DEFAULT_SSL_VERIFY,
+    DEFAULT_UPDATE_CHECK_HOUR,
     DOMAIN,
-    # feature switch
-    CONF_FEATURE_HEALTH_CHECK,
-    DEFAULT_FEATURE_HEALTH_CHECK,
-    CONF_FEATURE_RESTART_POLICY,
-    DEFAULT_FEATURE_RESTART_POLICY,
 )
-from .api import PortainerAPI
 
 _LOGGER = getLogger(__name__)
 
@@ -49,11 +51,11 @@ def configured_instances(hass):
 # ---------------------------
 #   PortainerConfigFlow
 # ---------------------------
-class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
+class PortainerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """PortainerConfigFlow class."""
 
     VERSION = 1
-    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
+    MINOR_VERSION = 1
 
     async def async_step_import(
         self, user_input: dict[str, Any] | None = None
@@ -127,17 +129,18 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return PortainerOptionsFlow()
+        return PortainerOptionsFlow(config_entry)
 
 
-class PortainerOptionsFlow(OptionsFlow):
+class PortainerOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for My Integration."""
 
-    @property
-    def config_entry(self):
-        return self.hass.config_entries.async_get_entry(self.handler)
+    def __init__(self, config_entry):
+        """Initialize the options flow."""
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -161,6 +164,18 @@ class PortainerOptionsFlow(OptionsFlow):
                             CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
                         ),
                     ): bool,
+                    vol.Optional(
+                        CONF_FEATURE_UPDATE_CHECK,
+                        default=self.config_entry.options.get(
+                            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_UPDATE_CHECK_HOUR,
+                        default=self.config_entry.options.get(
+                            CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
+                        ),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
                 }
             ),
             errors=None,
