@@ -7,7 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import CONN_CLASS_LOCAL_POLL, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -58,7 +58,6 @@ class PortainerConfigFlow(ConfigFlow):
 
     domain = DOMAIN
     VERSION = 1
-    CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
     async def async_step_import(
         self, user_input: dict[str, Any] | None = None
@@ -141,17 +140,18 @@ class PortainerConfigFlow(ConfigFlow):
             errors=errors,
         )
 
+    @staticmethod
     @callback
-    def async_get_options_flow(self):
-        return PortainerOptionsFlow()
+    def async_get_options_flow(config_entry):
+        return PortainerOptionsFlow(config_entry)
 
 
 class PortainerOptionsFlow(OptionsFlow):
     """Handle options flow for My Integration."""
 
-    @property
-    def config_entry(self):
-        return self.hass.config_entries.async_get_entry(self.handler)
+    def __init__(self, config_entry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
