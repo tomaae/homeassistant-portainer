@@ -5,11 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntityDescription,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntityDescription
 
 from .const import CUSTOM_ATTRIBUTE_ARRAY
 
@@ -48,6 +44,10 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
 class PortainerSensorEntityDescription(SensorEntityDescription):
     """Class describing portainer entities."""
 
+    key: str | None = None
+    name: str | None = None
+    icon: str | None = None
+    entity_category: str | None = None
     ha_group: str | None = None
     ha_connection: str | None = None
     ha_connection_value: str | None = None
@@ -91,4 +91,4 @@ SENSOR_TYPES: tuple[PortainerSensorEntityDescription, ...] = (
     ),
 )
 
-SENSOR_SERVICES = []
+SENSOR_SERVICES: list[PortainerSensorEntityDescription] = []

@@ -68,17 +68,19 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
             ),
         }
-        
+
         # Update check configuration
         self.update_check_hour = config_entry.options.get(
             CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
         )
-        self.last_update_check = None
-        self.cached_update_results = {}
-        self.cached_registry_responses = {}  # Cache registry responses per image name
+        self.last_update_check: datetime | None = None
+        self.cached_update_results: dict[str, bool] = {}
+        self.cached_registry_responses: dict[str, dict] = (
+            {}
+        )  # Cache registry responses per image name
 
         # init raw data
-        self.raw_data = {
+        self.raw_data: dict[str, dict] = {
             "endpoints": {},
             "containers": {},
         }
@@ -93,7 +95,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             config_entry.data[CONF_VERIFY_SSL],
         )
 
-        self._systemstats_errored = []
+        self._systemstats_errored: list = []
         self.datasets_hass_device_id = None
 
         self.config_entry.async_on_unload(self.async_shutdown)
@@ -108,12 +110,12 @@ class PortainerCoordinator(DataUpdateCoordinator):
     # ---------------------------
     #   _async_update_data
     # ---------------------------
-    async def _async_update_data(self) -> None:
+    async def _async_update_data(self) -> dict[str, dict]:
         """Update Portainer data."""
         try:
             await asyncio_wait_for(self.lock.acquire(), timeout=10)
         except Exception:
-            return
+            return {}
 
         try:
             self.raw_data = {}
@@ -290,7 +292,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY
                             ]["Update_Available"] = update_available
-                            
+
                         del self.raw_data["containers"][eid][cid][
                             CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                         ]
@@ -309,26 +311,29 @@ class PortainerCoordinator(DataUpdateCoordinator):
         """Check if it's time to check for updates."""
         if not self.features[CONF_FEATURE_UPDATE_CHECK]:
             return False
-            
+
         now = datetime.now()
-        
+
         # If we've never checked, check now
         if self.last_update_check is None:
             return True
-            
+
         # Calculate the next check time (today at configured hour)
-        next_check = now.replace(hour=self.update_check_hour, minute=0, second=0, microsecond=0)
-        
+        next_check = now.replace(
+            hour=self.update_check_hour, minute=0, second=0, microsecond=0
+        )
+
         # If the configured hour has passed today, set next check for tomorrow
         if now.hour >= self.update_check_hour:
             next_check += timedelta(days=1)
-            
+
         # Check if we've passed the next check time since last check
         return self.last_update_check < next_check and now >= next_check
+
     def check_image_updates(self, eid: str, container_data: dict) -> bool:
         """Check if an image update is available for a container."""
         container_id = container_data.get("Id", "")
-        
+
         # Get the current image name (without tag if present)
         image_name = container_data.get("Image", "")
         if not image_name:
@@ -345,15 +350,21 @@ class PortainerCoordinator(DataUpdateCoordinator):
         image_key = f"{image_repo}:{image_tag}"
 
         # Use cached result if available and not time to check
-        if not self.should_check_updates() and container_id in self.cached_update_results:
+        if (
+            not self.should_check_updates()
+            and container_id in self.cached_update_results
+        ):
             return self.cached_update_results[container_id]
 
         try:
             # Only query registry if it's time to check
             if self.should_check_updates():
-                _LOGGER.debug("Checking for updates for container %s (image: %s)", 
-                             container_data.get("Name", ""), image_name)
-                
+                _LOGGER.debug(
+                    "Checking for updates for container %s (image: %s)",
+                    container_data.get("Name", ""),
+                    image_name,
+                )
+
                 # Use cached registry response if available
                 if image_key in self.cached_registry_responses:
                     registry_response = self.cached_registry_responses[image_key]
@@ -379,10 +390,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
 
                 # Cache the result
                 self.cached_update_results[container_id] = update_available
-                
+
                 # Update the last check time
                 self.last_update_check = datetime.now()
-                
+
                 return update_available
             else:
                 # Return cached result or False if no cache
@@ -391,6 +402,4 @@ class PortainerCoordinator(DataUpdateCoordinator):
         except Exception as e:
             _LOGGER.debug("Error checking image updates for container: %s", e)
             self.cached_update_results[container_id] = False
-
-        return False
-        return False
+            return False
