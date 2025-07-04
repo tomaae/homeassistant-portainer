@@ -53,9 +53,10 @@ def configured_instances(hass):
 # ---------------------------
 #   PortainerConfigFlow
 # ---------------------------
-class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
+class PortainerConfigFlow(ConfigFlow):
     """PortainerConfigFlow class."""
 
+    domain = DOMAIN
     VERSION = 1
     CONNECTION_CLASS = CONN_CLASS_LOCAL_POLL
 
@@ -115,6 +116,15 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None, errors: dict[str, Any] | None = None
     ) -> FlowResult:
         """Show the configuration form."""
+        if user_input is None:
+            user_input = {
+                CONF_NAME: DEFAULT_DEVICE_NAME,
+                CONF_HOST: DEFAULT_HOST,
+                CONF_API_KEY: "",
+                CONF_SSL: DEFAULT_SSL,
+                CONF_VERIFY_SSL: DEFAULT_SSL_VERIFY,
+            }
+
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -132,7 +142,7 @@ class PortainerConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(self):
         return PortainerOptionsFlow()
 
 

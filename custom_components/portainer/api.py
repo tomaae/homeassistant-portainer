@@ -61,11 +61,14 @@ class PortainerAPI(object):
     #   query
     # ---------------------------
     def query(
-        self, service: str, method: str = "get", params: dict[str, Any] | None = {}
-    ) -> Optional(list):
+        self, service: str, method: str = "get", params: dict[str, Any] | None = None
+    ) -> Optional[list]:
         """Retrieve data from Portainer."""
+        if params is None:
+            params = {}
         self.lock.acquire()
         error = False
+        response = None
         try:
             _LOGGER.debug(
                 "Portainer %s query: %s, %s, %s",
@@ -97,7 +100,7 @@ class PortainerAPI(object):
                     timeout=10,
                 )
 
-            if response.status_code == 200:
+            if response is not None and response.status_code == 200:
                 data = response.json()
                 _LOGGER.debug("Portainer %s query response: %s", self._host, data)
             else:
@@ -107,7 +110,9 @@ class PortainerAPI(object):
 
         if error:
             try:
-                errorcode = response.status_code
+                errorcode = (
+                    response.status_code if response is not None else "no_response"
+                )
             except Exception:
                 errorcode = "no_response"
 
