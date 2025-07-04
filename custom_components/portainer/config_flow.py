@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import ConfigFlow, OptionsFlow
 from homeassistant.const import (
     CONF_API_KEY,
     CONF_HOST,
@@ -147,7 +147,7 @@ class PortainerConfigFlow(ConfigFlow):
 class PortainerOptionsFlow(OptionsFlow):
     """Handle options flow for My Integration."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
+    def __init__(self, config_entry):
         """Initialize options flow."""
         self.config_entry = config_entry
 
