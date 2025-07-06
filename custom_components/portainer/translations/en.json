@@ -1,47 +1,54 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "description": "Set up Portainer integration.",
-                "data": {
-                    "name": "Name of the integration",
-                    "host": "Host",
-                    "api_key": "API key",
-                    "ssl": "Use SSL",
-                    "verify_ssl": "Verify SSL certificate"
-                }
-            }
-        },
-        "error": {
-            "name_exists": "Name already exists.",
-            "no_response": "No response from host.",
-            "401": "No authorization for this endpoint.",
-            "404": "API not found on this host.",
-            "500": "Internal error."
+  "config": {
+    "step": {
+      "user": {
+        "description": "Set up Portainer integration.",
+        "data": {
+          "name": "Name of the integration",
+          "host": "Host",
+          "api_key": "API key",
+          "ssl": "Use SSL",
+          "verify_ssl": "Verify SSL certificate"
         }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "description": "Configure custom features and update check settings.",
-                "data": {
-                    "feature_switch_health_check": "Enable Health Check",
-                    "feature_switch_restart_policy": "Enable Restart Policy",
-                    "feature_switch_update_check": "Enable Update Check (checks every 24 hours)",
-                    "update_check_hour": "Update Check Time (hour 0-23)"
-                }
-            }
-        }
-    },
-    "entity": {
-        "sensor": {
-            "update_check_status": {
-                "name": "Container Update Check",
-                "state": {
-                    "never": "Never scheduled",
-                    "disabled": "Disabled"
-                }
-            }
-        }
+    "error": {
+      "name_exists": "Name already exists.",
+      "no_response": "No response from host.",
+      "401": "No authorization for this endpoint.",
+      "404": "API not found on this host.",
+      "500": "Internal error."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "description": "Configure custom features and update check settings.",
+        "data": {
+          "feature_switch_health_check": "Enable Health Check",
+          "feature_switch_restart_policy": "Enable Restart Policy",
+          "feature_switch_update_check": "Enable Update Check (checks every 24 hours)",
+          "update_check_hour": "Update Check Time (hour 0-23)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "update_check_status": {
+        "name": "Container Update Check",
+        "state": {
+          "never": "Never scheduled",
+          "disabled": "Disabled"
+        }
+      }
+    }
+  },
+  "services": {
+    "force_update_check": {
+      "name": "Force Update Check",
+      "description": "Force an immediate update check for all containers",
+      "icon": "mdi:update"
+    }
+  }
 }
