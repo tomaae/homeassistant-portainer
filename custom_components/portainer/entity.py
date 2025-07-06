@@ -32,6 +32,14 @@ async def async_create_sensors(
 ) -> list[PortainerEntity]:
     hass = coordinator.hass
     config_entry = coordinator.config_entry
+
+    # Get existing entities to avoid duplicates
+    existing_entities = (
+        hass.data[DOMAIN]
+        .setdefault(config_entry.entry_id, {})
+        .setdefault("entities", {})
+    )
+
     for description in descriptions:
         # Ensure data path exists, create empty dict if needed
         if description.data_path not in coordinator.data:
@@ -50,17 +58,24 @@ async def async_create_sensors(
             ):
                 continue
 
-            obj = dispatcher[description.func](coordinator, description)
-            hass.data[DOMAIN].setdefault(config_entry.entry_id, {}).setdefault(
-                "entities", {}
-            )[obj.unique_id] = obj
+            # Create a temporary object to get the unique_id
+            temp_obj = dispatcher[description.func](coordinator, description)
+            unique_id = temp_obj.unique_id
+
+            # Only add if not already exists
+            if unique_id not in existing_entities:
+                existing_entities[unique_id] = temp_obj
         else:
             for uid in data:
-                obj = dispatcher[description.func](coordinator, description, uid)
-                hass.data[DOMAIN].setdefault(config_entry.entry_id, {}).setdefault(
-                    "entities", {}
-                )[obj.unique_id] = obj
-    return list(hass.data[DOMAIN][config_entry.entry_id]["entities"].values())
+                # Create a temporary object to get the unique_id
+                temp_obj = dispatcher[description.func](coordinator, description, uid)
+                unique_id = temp_obj.unique_id
+
+                # Only add if not already exists
+                if unique_id not in existing_entities:
+                    existing_entities[unique_id] = temp_obj
+
+    return list(existing_entities.values())
 
 
 # ---------------------------
