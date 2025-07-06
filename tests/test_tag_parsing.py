@@ -93,12 +93,12 @@ class TestDockerImageTagParsing:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         repo, tag = coordinator._parse_image_name(image_name)
-        assert repo == expected_repo, (
-            f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
-        )
-        assert tag == expected_tag, (
-            f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
-        )
+        assert (
+            repo == expected_repo
+        ), f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
+        assert (
+            tag == expected_tag
+        ), f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
 
     def test_parse_image_name_with_none_input(self):
         """Test that None input is handled gracefully."""
@@ -122,12 +122,12 @@ class TestDockerImageTagParsing:
 
         for image_name, expected_repo, expected_tag in test_cases:
             repo, tag = coordinator._parse_image_name(image_name)
-            assert repo == expected_repo, (
-                f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
-            )
-            assert tag == expected_tag, (
-                f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
-            )
+            assert (
+                repo == expected_repo
+            ), f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
+            assert (
+                tag == expected_tag
+            ), f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
 
     def test_parse_image_name_digest_removal(self):
         """Test that SHA digests are properly removed."""

@@ -23,6 +23,20 @@ source .venv/bin/activate  # Linux/macOS
 pip install -r requirements_test.txt
 ```
 
+This includes all test dependencies plus development tools like Black for code formatting.
+
+### Code Formatting
+
+Before running tests, ensure your code is properly formatted with Black:
+
+```bash
+# Format all code
+black custom_components/ tests/
+
+# Check formatting without applying changes
+black --check custom_components/ tests/
+```
+
 ### Run All Tests
 
 ```bash

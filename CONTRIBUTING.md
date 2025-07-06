@@ -26,11 +26,33 @@ python -m pytest -v
 
 ## Code Standards
 
-### Formatting
+### Formatting with Black
 
-- Use **Black** for code formatting: `black custom_components/ tests/`
+This project uses **Black** for consistent code formatting. All code must be Black-formatted before submitting.
+
+```bash
+# Format all Python files
+black custom_components/ tests/
+
+# Check if files need formatting (dry run)
+black --check custom_components/ tests/
+
+# Format specific file
+black custom_components/portainer/coordinator.py
+
+# Show what would change without applying
+black --diff custom_components/ tests/
+```
+
+**Configuration**: Black uses default settings (88 character line length, etc.)
+
+**VS Code Integration**: The provided `.vscode/settings.json` enables auto-formatting on save.
+
+### General Code Standards
+
 - Line length: 88 characters (Black default)
 - Follow PEP 8 conventions
+- Use meaningful variable and function names
 
 ### Testing
 
@@ -85,11 +107,20 @@ python -m pytest --cov=custom_components.portainer --cov-report=html
 1. **Fork** the repository
 2. **Create feature branch**: `git checkout -b feature/your-feature-name`
 3. **Make changes** with tests
-4. **Run tests**: `python -m pytest`
-5. **Format code**: `black custom_components/ tests/`
+4. **Format code**: `black custom_components/ tests/` (required!)
+5. **Run tests**: `python -m pytest` (must pass!)
 6. **Commit**: `git commit -m "Add your feature description"`
 7. **Push**: `git push origin feature/your-feature-name`
 8. **Create Pull Request**
+
+### Pre-commit Checklist
+
+Before committing, ensure:
+
+- [ ] Code is Black-formatted: `black --check custom_components/ tests/`
+- [ ] All tests pass: `python -m pytest`
+- [ ] No linting errors
+- [ ] Documentation updated if needed
 
 ### Pull Request Guidelines
 

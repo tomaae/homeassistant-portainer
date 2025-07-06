@@ -211,10 +211,27 @@ tests/
 
 1. **Create a feature branch**: `git checkout -b feature/your-feature`
 2. **Make changes** to the code
-3. **Run tests**: `python -m pytest` to ensure nothing breaks
-4. **Format code**: `black custom_components/ tests/`
+3. **Format code**: Use Black to ensure consistent code style
+4. **Run tests**: `python -m pytest` to ensure nothing breaks
 5. **Commit changes**: `git commit -m "Description of changes"`
 6. **Push and create PR**: `git push origin feature/your-feature`
+
+#### Code Formatting with Black
+
+This project uses [Black](https://black.readthedocs.io/) for consistent code formatting.
+
+```bash
+# Format all Python files
+black custom_components/ tests/
+
+# Check if files need formatting (without applying changes)
+black --check custom_components/ tests/
+
+# Format specific file
+black custom_components/portainer/coordinator.py
+```
+
+**Important**: All code must be Black-formatted before committing. VS Code is configured to auto-format on save if you use the provided settings.
 
 ### Debugging
 

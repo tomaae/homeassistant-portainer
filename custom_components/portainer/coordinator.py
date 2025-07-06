@@ -76,9 +76,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.last_update_check: datetime | None = None
         self.force_update_requested: bool = False  # Flag for force update
         self.cached_update_results: dict[str, bool] = {}
-        self.cached_registry_responses: dict[
-            str, dict
-        ] = {}  # Cache registry responses per image name
+        self.cached_registry_responses: dict[str, dict] = (
+            {}
+        )  # Cache registry responses per image name
 
         # init raw data
         self.raw_data: dict[str, dict] = {
@@ -275,9 +275,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     self.raw_data["containers"][eid][cid]["Name"] = self.raw_data[
                         "containers"
                     ][eid][cid]["Names"][0][1:]
-                    self.raw_data["containers"][eid][cid]["ConfigEntryId"] = (
-                        self.config_entry_id
-                    )
+                    self.raw_data["containers"][eid][cid][
+                        "ConfigEntryId"
+                    ] = self.config_entry_id
                     # avoid shared references given in default
                     self.raw_data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY] = {}
 
@@ -319,13 +319,17 @@ class PortainerCoordinator(DataUpdateCoordinator):
                                 CUSTOM_ATTRIBUTE_ARRAY
                             ]["Health_Status"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ]["Health_Status"]
+                            ][
+                                "Health_Status"
+                            ]
                         if self.features[CONF_FEATURE_RESTART_POLICY]:
                             self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY
                             ]["Restart_Policy"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ]["Restart_Policy"]
+                            ][
+                                "Restart_Policy"
+                            ]
                         if self.features[CONF_FEATURE_UPDATE_CHECK]:
                             # Check if image update is available
                             update_available = self.check_image_updates(
