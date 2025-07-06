@@ -5,12 +5,20 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
-  "python.defaultInterpreterPath": "/Users/herbe/miniconda3/envs/qiskit/bin/python",
+  "python.defaultInterpreterPath": "./.venv/bin/python",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["tests"],
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  "python.terminal.activateEnvironment": true,
   "[python]": {
-    "editor.defaultFormatter": "ms-python.black-formatter",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     }
+  },
+  "sonarlint.connectedMode.project": {
+    "connectionId": "nrcb5b1fkky3oa6ljluaiqhk3oa6ljluaiqhk3pzy91kg0hw7vibanuvffftnbbig6wb14v3kr83436wwa3",
+    "projectKey": "helgeerbe_homeassistant-portainer"
   }
 }
