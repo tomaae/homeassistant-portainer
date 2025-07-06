@@ -21,8 +21,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import PortainerAPI
 from .apiparser import parse_api
-from .const import CONF_FEATURE_HEALTH_CHECK  # fature switch
 from .const import (
+    CONF_FEATURE_HEALTH_CHECK,  # fature switch
     CONF_FEATURE_RESTART_POLICY,
     CONF_FEATURE_UPDATE_CHECK,
     CONF_UPDATE_CHECK_HOUR,
@@ -502,17 +502,19 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 # Info logging only for containers with updates available
                 if update_available:
                     _LOGGER.info(
-                        "Update available: %s (%s)",
+                        "Update available: %s (%s) - Current: %s, Registry: %s",
                         container_name,
                         image_name,
+                        container_image_id[-12:] if container_image_id else "None",
+                        registry_image_id[-12:] if registry_image_id else "None",
                     )
                 else:
                     _LOGGER.debug(
                         "No update: %s (%s) - Current: %s, Registry: %s",
                         container_name,
                         image_name,
-                        container_image_id[-12:] if container_image_id else "None",
-                        registry_image_id[-12:] if registry_image_id else "None",
+                        container_image_id if container_image_id else "None",
+                        registry_image_id if registry_image_id else "None",
                     )
 
                 # Cache the result

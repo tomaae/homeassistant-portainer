@@ -12,5 +12,9 @@
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     }
+  },
+  "sonarlint.connectedMode.project": {
+    "connectionId": "nrcb5b1fkky3oa6ljluaiqhk3pzy91kg0hw7vibanuvffftnbbig6wb14v3kr83436wwa3",
+    "projectKey": "helgeerbe_homeassistant-portainer"
   }
 }
