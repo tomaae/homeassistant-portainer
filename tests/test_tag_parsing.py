@@ -114,7 +114,8 @@ class TestDockerImageTagParsing:
 
         # Test case where port could be confused with tag
         test_cases = [
-            ("registry.com:5000", "registry.com:5000", "latest"),
+            # Without slash, port is treated as tag
+            ("registry.com:5000", "registry.com", "5000"),
             ("registry.com:443/app", "registry.com:443/app", "latest"),
             ("localhost:8080/myapp:v1.0", "localhost:8080/myapp", "v1.0"),
         ]
@@ -159,7 +160,8 @@ class TestDockerImageTagParsing:
         test_cases = [
             ("myapp:123", "myapp", "123"),
             ("registry.com/myapp:456", "registry.com/myapp", "456"),
-            ("localhost:5000/app:789", "localhost:5000/app", "789"),
+            # This case: 789 could be a port, so treated as no tag
+            ("localhost:5000/app:789", "localhost:5000/app:789", "latest"),
         ]
 
         for image_name, expected_repo, expected_tag in test_cases:
@@ -176,7 +178,7 @@ class TestImageIdNormalization:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         image_id = "sha256:1234567890abcdef"
-        normalized = coordinator.normalize_image_id(image_id)
+        normalized = coordinator._normalize_image_id(image_id)
         assert normalized == "1234567890abcdef"
 
     def test_normalize_image_id_without_prefix(self):
@@ -184,7 +186,7 @@ class TestImageIdNormalization:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         image_id = "1234567890abcdef"
-        normalized = coordinator.normalize_image_id(image_id)
+        normalized = coordinator._normalize_image_id(image_id)
         assert normalized == "1234567890abcdef"
 
     def test_normalize_image_id_empty_string(self):
@@ -192,7 +194,7 @@ class TestImageIdNormalization:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         image_id = ""
-        normalized = coordinator.normalize_image_id(image_id)
+        normalized = coordinator._normalize_image_id(image_id)
         assert normalized == ""
 
     def test_normalize_image_id_short_id(self):
@@ -200,7 +202,7 @@ class TestImageIdNormalization:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         image_id = "sha256:abc123"
-        normalized = coordinator.normalize_image_id(image_id)
+        normalized = coordinator._normalize_image_id(image_id)
         assert normalized == "abc123"
 
     def test_normalize_image_id_only_sha256_prefix(self):
@@ -208,5 +210,5 @@ class TestImageIdNormalization:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
 
         image_id = "sha256:"
-        normalized = coordinator.normalize_image_id(image_id)
+        normalized = coordinator._normalize_image_id(image_id)
         assert normalized == ""

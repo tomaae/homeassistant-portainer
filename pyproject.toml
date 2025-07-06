@@ -9,6 +9,10 @@ addopts = [
     "--strict-markers",
     "--strict-config",
 ]
+filterwarnings = [
+    "ignore::DeprecationWarning:homeassistant.components.http.*",
+    "ignore::DeprecationWarning:homeassistant.*",
+]
 markers = [
     "slow: marks tests as slow",
     "integration: marks tests as integration tests",

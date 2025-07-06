@@ -1,0 +1,7 @@
+# Runtime dependencies
+homeassistant>=2023.1.0
+
+# Development dependencies (optional - use requirements_test.txt for testing)
+# black>=22.0.0
+# pylint>=2.15.0
+# pre-commit>=2.20.0

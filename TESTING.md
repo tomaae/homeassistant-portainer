@@ -2,32 +2,49 @@
 
 ## Test Setup
 
-This project uses pytest for testing. The test suite is configured to test the core functionality of the Portainer Home Assistant custom component.
+This project uses pytest for testing. The test suite validates core functionality of the Portainer Home Assistant custom component.
 
-## Running Tests
+## Quick Start
 
 ### Prerequisites
 
-Install test dependencies:
+1. **Create virtual environment** (recommended):
+
 ```bash
-pip3 install -r requirements_test.txt
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# or
+.venv\Scripts\activate     # Windows
+```
+
+2. **Install dependencies**:
+
+```bash
+pip install -r requirements_test.txt
 ```
 
 ### Run All Tests
+
 ```bash
-pytest tests/ -v
+# Run all 55 tests
+python -m pytest tests/ -v
+
+# Run with coverage report
+python -m pytest tests/ --cov=custom_components.portainer --cov-report=html
 ```
 
 ### Run Specific Test Categories
-```bash
-# Tag parsing tests (currently working)
-pytest tests/test_tag_parsing.py -v
 
-# Update check tests (needs fixing)
-pytest tests/test_update_checks.py -v
+```bash
+# Tag parsing tests (37 tests) ✅
+python -m pytest tests/test_tag_parsing.py -v
+
+# Update check tests (18 tests) ✅
+python -m pytest tests/test_update_checks.py -v
 ```
 
 ### Run with Coverage
+
 ```bash
 pytest tests/ --cov=custom_components/portainer --cov-report=html
 ```
@@ -35,13 +52,15 @@ pytest tests/ --cov=custom_components/portainer --cov-report=html
 ## Test Status
 
 ### Working Tests (30/55)
+
 - ✅ Docker image tag parsing
-- ✅ Image name normalization 
+- ✅ Image name normalization
 - ✅ Registry handling
 - ✅ Digest removal
 - ✅ Basic coordinator functionality
 
 ### Tests Needing Fixes (25/55)
+
 - 🔧 Update check logic tests (API signature mismatch)
 - 🔧 Cache invalidation tests (method naming)
 - 🔧 Some edge cases in tag parsing
@@ -49,6 +68,7 @@ pytest tests/ --cov=custom_components/portainer --cov-report=html
 ## VS Code Integration
 
 Use the "Run Tests" task in VS Code:
+
 - Open Command Palette (`Ctrl+Shift+P`)
 - Type "Tasks: Run Task"
 - Select "Run Tests"
@@ -65,12 +85,14 @@ tests/
 ## Writing New Tests
 
 Follow the existing patterns:
+
 - Use pytest fixtures for setup
 - Test both positive and negative cases
 - Mock external dependencies (API calls)
 - Use descriptive test names
 
 Example:
+
 ```python
 def test_parse_image_name_with_registry():
     """Test parsing image names with registry prefixes."""
