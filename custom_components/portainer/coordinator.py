@@ -75,6 +75,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
         )
         self.last_update_check: datetime | None = None
+        self.force_update_requested: bool = False  # Flag for force update
         self.cached_update_results: dict[str, bool] = {}
         self.cached_registry_responses: dict[str, dict] = (
             {}
@@ -130,6 +131,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             self.raw_data = {}
             await self.hass.async_add_executor_job(self.get_endpoints)
             await self.hass.async_add_executor_job(self.get_containers)
+            await self.hass.async_add_executor_job(self.get_system_data)
         except Exception as error:
             self.lock.release()
             raise UpdateFailed(error) from error
@@ -141,6 +143,37 @@ class PortainerCoordinator(DataUpdateCoordinator):
         async_dispatcher_send(self.hass, f"{self.config_entry.entry_id}_update", self)
 
         return self.raw_data
+
+    # ---------------------------
+    #   get_system_data
+    # ---------------------------
+    def get_system_data(self) -> None:
+        """Get system-level data."""
+        update_enabled = self.features[CONF_FEATURE_UPDATE_CHECK]
+        next_update = self.get_next_update_check_time() if update_enabled else None
+
+        if not update_enabled:
+            # Feature is disabled
+            next_update_value = "disabled"
+        elif next_update:
+            # Feature is enabled and next check is scheduled
+            next_update_value = next_update.isoformat()
+        else:
+            # Feature is enabled but no check scheduled (should not happen normally)
+            next_update_value = "never"
+
+        system_data = {
+            "next_update_check": next_update_value,
+            "update_feature_enabled": update_enabled,
+            "last_update_check": (
+                self.last_update_check.isoformat()
+                if self.last_update_check
+                else "never"
+            ),
+        }
+
+        self.raw_data["system"] = system_data
+        _LOGGER.debug("System data created: %s", system_data)
 
     # ---------------------------
     #   get_endpoints
@@ -325,10 +358,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
         if not self.features[CONF_FEATURE_UPDATE_CHECK]:
             return False
 
+        # If force update was requested, always return True
+        if self.force_update_requested:
+            _LOGGER.debug("Force update requested - bypassing time checks")
+            return True
+
         now = datetime.now()
 
         # If we've never checked, check now
         if self.last_update_check is None:
+            _LOGGER.debug("First update check - performing now")
             return True
 
         # Calculate the next check time (today at configured hour)
@@ -341,15 +380,75 @@ class PortainerCoordinator(DataUpdateCoordinator):
             next_check += timedelta(days=1)
 
         # Check if we've passed the next check time since last check
-        return self.last_update_check < next_check and now >= next_check
+        result = self.last_update_check < next_check and now >= next_check
+        if result:
+            _LOGGER.debug("Scheduled update check time reached")
+        return result
+
+    # ---------------------------
+    #   get_next_update_check_time
+    # ---------------------------
+    def get_next_update_check_time(self) -> datetime | None:
+        """Get the next scheduled update check time."""
+        if not self.features[CONF_FEATURE_UPDATE_CHECK]:
+            return None
+
+        now = datetime.now()
+        today_check = now.replace(
+            hour=self.update_check_hour, minute=0, second=0, microsecond=0
+        )
+
+        if now < today_check:
+            # Today's check hasn't happened yet
+            return today_check
+
+        # Next check is tomorrow
+        return today_check + timedelta(days=1)
+
+        # ---------------------------
+        #   force_update_check
+        # ---------------------------
+
+    async def force_update_check(self) -> None:
+        """Force an immediate update check for all containers."""
+        if not self.features[CONF_FEATURE_UPDATE_CHECK]:
+            _LOGGER.info(
+                "Force update check requested but update check feature is disabled"
+            )
+            return
+
+        _LOGGER.info("Force update check initiated for all containers")
+
+        # Set force update flag to bypass time checks
+        self.force_update_requested = True
+
+        # Clear cached results to force fresh check
+        self.cached_update_results.clear()
+        self.cached_registry_responses.clear()
+
+        # Update last check time
+        self.last_update_check = datetime.now()
+
+        # Trigger data refresh
+        await self.async_request_refresh()
+
+        # Reset force update flag after refresh is complete
+        self.force_update_requested = False
+
+        _LOGGER.info("Force update check completed")
 
     def check_image_updates(self, eid: str, container_data: dict) -> bool:
         """Check if an image update is available for a container."""
         container_id = container_data.get("Id", "")
+        container_name = container_data.get("Name", "").lstrip("/")
 
         # Get the current image name (without tag if present)
         image_name = container_data.get("Image", "")
         if not image_name:
+            _LOGGER.debug(
+                "Container %s: No image name found, skipping update check",
+                container_name,
+            )
             self.cached_update_results[container_id] = False
             return False
 
@@ -363,21 +462,14 @@ class PortainerCoordinator(DataUpdateCoordinator):
         image_key = f"{image_repo}:{image_tag}"
 
         # Use cached result if available and not time to check
-        if (
-            not self.should_check_updates()
-            and container_id in self.cached_update_results
-        ):
+        should_check = self.should_check_updates()
+
+        if not should_check and container_id in self.cached_update_results:
             return self.cached_update_results[container_id]
 
         try:
             # Only query registry if it's time to check
-            if self.should_check_updates():
-                _LOGGER.debug(
-                    "Checking for updates for container %s (image: %s)",
-                    container_data.get("Name", ""),
-                    image_name,
-                )
-
+            if should_check:
                 # Use cached registry response if available
                 if image_key in self.cached_registry_responses:
                     registry_response = self.cached_registry_responses[image_key]
@@ -407,6 +499,22 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 if registry_image_id and container_image_id:
                     update_available = registry_image_id != container_image_id
 
+                # Info logging only for containers with updates available
+                if update_available:
+                    _LOGGER.info(
+                        "Update available: %s (%s)",
+                        container_name,
+                        image_name,
+                    )
+                else:
+                    _LOGGER.debug(
+                        "No update: %s (%s) - Current: %s, Registry: %s",
+                        container_name,
+                        image_name,
+                        container_image_id[-12:] if container_image_id else "None",
+                        registry_image_id[-12:] if registry_image_id else "None",
+                    )
+
                 # Cache the result
                 self.cached_update_results[container_id] = update_available
 
@@ -414,11 +522,13 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 self.last_update_check = datetime.now()
 
                 return update_available
-            else:
-                # Return cached result or False if no cache
-                return self.cached_update_results.get(container_id, False)
 
-        except Exception as e:
-            _LOGGER.debug("Error checking image updates for container: %s", e)
+            # Return cached result or False if no cache
+            return self.cached_update_results.get(container_id, False)
+
+        except (KeyError, ValueError, TypeError) as e:
+            _LOGGER.warning(
+                "Container %s: Update check failed - %s", container_name, str(e)
+            )
             self.cached_update_results[container_id] = False
             return False

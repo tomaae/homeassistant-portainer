@@ -30,7 +30,18 @@
                     "feature_switch_update_check": "Enable Update Check (checks every 24 hours)",
                     "update_check_hour": "Update Check Time (hour 0-23)"
                 }
-            }   
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "update_check_status": {
+                "name": "Container Update Check",
+                "state": {
+                    "never": "Never scheduled",
+                    "disabled": "Disabled"
+                }
+            }
         }
     }
 }

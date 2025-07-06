@@ -101,7 +101,11 @@ class PortainerAPI(object):
 
             if response is not None and response.status_code == 200:
                 data = response.json()
-                _LOGGER.debug("Portainer %s query response: %s", self._host, data)
+                _LOGGER.debug(
+                    "Portainer %s query completed successfully for %s",
+                    self._host,
+                    service,
+                )
             else:
                 error = True
         except Exception:

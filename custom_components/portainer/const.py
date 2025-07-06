@@ -1,10 +1,12 @@
 """Constants used by the Portainer integration."""
 
-from homeassistant.const import Platform
 from typing import Final
+
+from homeassistant.const import Platform
 
 PLATFORMS = [
     Platform.SENSOR,
+    Platform.BUTTON,
 ]
 
 DOMAIN = "portainer"
@@ -38,6 +40,6 @@ DEFAULT_FEATURE_HEALTH_CHECK = False
 CONF_FEATURE_RESTART_POLICY: Final = "feature_switch_restart_policy"
 DEFAULT_FEATURE_RESTART_POLICY = False
 CONF_FEATURE_UPDATE_CHECK: Final = "feature_switch_update_check"
-DEFAULT_FEATURE_UPDATE_CHECK = False
+DEFAULT_FEATURE_UPDATE_CHECK = True
 CONF_UPDATE_CHECK_HOUR: Final = "update_check_hour"
 DEFAULT_UPDATE_CHECK_HOUR = 2  # 2 AM by default

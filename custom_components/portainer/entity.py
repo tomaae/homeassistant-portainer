@@ -14,9 +14,9 @@ from homeassistant.util import slugify
 
 from .const import (
     ATTRIBUTION,
-    DOMAIN,
     CUSTOM_ATTRIBUTE_ARRAY,
     DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE,
+    DOMAIN,
 )
 from .coordinator import PortainerCoordinator
 from .helper import format_attribute, format_camel_case
@@ -33,10 +33,23 @@ async def async_create_sensors(
     hass = coordinator.hass
     config_entry = coordinator.config_entry
     for description in descriptions:
+        # Ensure data path exists, create empty dict if needed
+        if description.data_path not in coordinator.data:
+            coordinator.data[description.data_path] = {}
+
         data = coordinator.data[description.data_path]
         if not description.data_reference:
-            if data.get(description.data_attribute) is None:
+            # UpdateCheckSensor is always created, even if feature is disabled
+            # (it will show "disabled" state instead of being unavailable)
+            if description.func == "UpdateCheckSensor":
+                pass  # Always create UpdateCheckSensor
+            # Always create TimestampSensor entities, even if data is not available yet
+            elif (
+                data.get(description.data_attribute) is None
+                and description.func != "TimestampSensor"
+            ):
                 continue
+
             obj = dispatcher[description.func](coordinator, description)
             hass.data[DOMAIN].setdefault(config_entry.entry_id, {}).setdefault(
                 "entities", {}
