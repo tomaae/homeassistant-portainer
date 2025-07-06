@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from asyncio import Lock as Asyncio_lock
-from asyncio import wait_for as asyncio_wait_for
+import asyncio
 from datetime import datetime, timedelta
 from logging import getLogger
 
@@ -22,7 +21,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import PortainerAPI
 from .apiparser import parse_api
 from .const import (
-    CONF_FEATURE_HEALTH_CHECK,  # fature switch
+    CONF_FEATURE_HEALTH_CHECK,  # feature switch
     CONF_FEATURE_RESTART_POLICY,
     CONF_FEATURE_UPDATE_CHECK,
     CONF_UPDATE_CHECK_HOUR,
@@ -77,9 +76,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.last_update_check: datetime | None = None
         self.force_update_requested: bool = False  # Flag for force update
         self.cached_update_results: dict[str, bool] = {}
-        self.cached_registry_responses: dict[str, dict] = (
-            {}
-        )  # Cache registry responses per image name
+        self.cached_registry_responses: dict[
+            str, dict
+        ] = {}  # Cache registry responses per image name
 
         # init raw data
         self.raw_data: dict[str, dict] = {
@@ -87,7 +86,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             "containers": {},
         }
 
-        self.lock = Asyncio_lock()
+        self.lock = asyncio.Lock()
 
         self.api = PortainerAPI(
             hass,
@@ -123,8 +122,8 @@ class PortainerCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> dict[str, dict]:
         """Update Portainer data."""
         try:
-            await asyncio_wait_for(self.lock.acquire(), timeout=10)
-        except Exception:
+            await asyncio.wait_for(self.lock.acquire(), timeout=10)
+        except TimeoutError:
             return {}
 
         try:
@@ -223,6 +222,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
     #   get_containers
     # ---------------------------
     def get_containers(self) -> None:
+        """Get containers from all endpoints."""
         self.raw_data["containers"] = {}
         for eid in self.raw_data["endpoints"]:
             if self.raw_data["endpoints"][eid]["Status"] == 1:
@@ -275,9 +275,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     self.raw_data["containers"][eid][cid]["Name"] = self.raw_data[
                         "containers"
                     ][eid][cid]["Names"][0][1:]
-                    self.raw_data["containers"][eid][cid][
-                        "ConfigEntryId"
-                    ] = self.config_entry_id
+                    self.raw_data["containers"][eid][cid]["ConfigEntryId"] = (
+                        self.config_entry_id
+                    )
                     # avoid shared references given in default
                     self.raw_data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY] = {}
 
@@ -287,7 +287,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     or self.features[CONF_FEATURE_RESTART_POLICY]
                     or self.features[CONF_FEATURE_UPDATE_CHECK]
                 ):
-                    for cid in self.raw_data["containers"][eid].keys():
+                    for cid in self.raw_data["containers"][eid]:
                         self.raw_data["containers"][eid][cid][
                             CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                         ] = parse_api(
@@ -319,17 +319,13 @@ class PortainerCoordinator(DataUpdateCoordinator):
                                 CUSTOM_ATTRIBUTE_ARRAY
                             ]["Health_Status"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Health_Status"
-                            ]
+                            ]["Health_Status"]
                         if self.features[CONF_FEATURE_RESTART_POLICY]:
                             self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY
                             ]["Restart_Policy"] = self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Restart_Policy"
-                            ]
+                            ]["Restart_Policy"]
                         if self.features[CONF_FEATURE_UPDATE_CHECK]:
                             # Check if image update is available
                             update_available = self.check_image_updates(
@@ -426,7 +422,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.cached_update_results.clear()
         self.cached_registry_responses.clear()
 
-        # Update last check time
+        # Update last check time to now to reset the cache expiry timer
         self.last_update_check = datetime.now()
 
         # Trigger data refresh
@@ -436,6 +432,85 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.force_update_requested = False
 
         _LOGGER.info("Force update check completed")
+
+    @staticmethod
+    def _normalize_image_id(image_id: str) -> str:
+        """Normalize an image ID by removing the sha256: prefix if present."""
+        if image_id.startswith("sha256:"):
+            return image_id[7:]  # Remove "sha256:" prefix
+        return image_id
+
+    def _parse_image_name(self, image_name: str) -> tuple[str, str]:
+        """Parse a Docker image name into repository and tag.
+
+        Handles various formats:
+        - nginx -> (nginx, latest)
+        - nginx:1.21 -> (nginx, 1.21)
+        - registry.com/nginx:latest -> (registry.com/nginx, latest)
+        - nginx@sha256:abc123 -> (nginx, latest) [digest removed]
+        - nginx:latest@sha256:abc123 -> (nginx, latest) [digest removed]
+        - localhost:5000/nginx:latest -> (localhost:5000/nginx, latest)
+        - localhost:5000/nginx -> (localhost:5000/nginx, latest)
+        """
+        if not image_name:
+            return "unknown", "latest"
+
+        # Remove digest part if present (everything after @)
+        if "@" in image_name:
+            image_name = image_name.split("@")[0]
+
+        # Handle cases with no tag
+        if ":" not in image_name:
+            return image_name, "latest"
+
+        # Strategy: Look for the rightmost colon that is followed by a valid tag
+        # A valid tag doesn't contain "/" and isn't purely a port number in context
+        parts = image_name.split(":")
+
+        # Simple case: image:tag
+        if len(parts) == 2:
+            # Check if second part looks like a tag (doesn't contain /)
+            if "/" not in parts[1]:
+                return parts[0], parts[1]
+            # This is likely registry:port/image format
+            return image_name, "latest"
+
+        # Complex case: registry:port/namespace/image:tag
+        # Find the last colon that separates a tag (no "/" in the part after it)
+        for i in range(len(parts) - 1, 0, -1):
+            potential_tag = parts[i]
+            potential_repo = ":".join(parts[:i])
+
+            # Valid tag: no "/" and not empty
+            if "/" not in potential_tag and potential_tag:
+                # Additional check: if it's purely numeric and there's more than 2 parts,
+                # it might be a port number, so be more careful
+                if potential_tag.isdigit() and len(parts) > 2:
+                    # Check if this could be a port by looking at context
+                    # If the part before this has no "/" after it, likely a port
+                    if (
+                        i > 0 and "/" not in ":".join(parts[i + 1 :])
+                        if i < len(parts) - 1
+                        else True
+                    ):
+                        # This looks like a port, continue searching
+                        continue
+
+                return potential_repo, potential_tag
+
+        # Fallback: treat whole thing as repository name
+        return image_name, "latest"
+
+    def _invalidate_cache_if_needed(self) -> None:
+        """Invalidate cached registry responses if last update check is too old."""
+        if self.last_update_check is None:
+            return
+
+        # Invalidate cache if last check was more than 24 hours ago
+        cache_expiry = timedelta(hours=24)
+        if datetime.now() - self.last_update_check > cache_expiry:
+            _LOGGER.debug("Invalidating stale registry cache")
+            self.cached_registry_responses.clear()
 
     def check_image_updates(self, eid: str, container_data: dict) -> bool:
         """Check if an image update is available for a container."""
@@ -452,20 +527,27 @@ class PortainerCoordinator(DataUpdateCoordinator):
             self.cached_update_results[container_id] = False
             return False
 
-        # Parse image name and tag
-        if ":" in image_name:
-            image_repo, image_tag = image_name.rsplit(":", 1)
-        else:
-            image_repo = image_name
-            image_tag = "latest"
-
+        # Parse image name and tag using robust parsing
+        image_repo, image_tag = self._parse_image_name(image_name)
         image_key = f"{image_repo}:{image_tag}"
 
-        # Use cached result if available and not time to check
+        _LOGGER.debug(
+            "Container %s: Parsed image '%s' -> repo='%s', tag='%s'",
+            container_name,
+            image_name,
+            image_repo,
+            image_tag,
+        )
+
+        # Check only once whether we should perform updates
         should_check = self.should_check_updates()
 
+        # Use cached result if available and not time to check
         if not should_check and container_id in self.cached_update_results:
             return self.cached_update_results[container_id]
+
+        # Invalidate stale cache if needed
+        self._invalidate_cache_if_needed()
 
         try:
             # Only query registry if it's time to check
@@ -490,11 +572,15 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     self.cached_update_results[container_id] = False
                     return False
 
-                # Get the current ImageID from the registry
-                registry_image_id = registry_response.get("Id", "")
-                container_image_id = container_data.get("ImageID", "")
+                # Get and normalize the image IDs for comparison
+                registry_image_id = self._normalize_image_id(
+                    registry_response.get("Id", "")
+                )
+                container_image_id = self._normalize_image_id(
+                    container_data.get("ImageID", "")
+                )
 
-                # Compare the IDs - if they differ, an update is available
+                # Compare the normalized IDs - if they differ, an update is available
                 update_available = False
                 if registry_image_id and container_image_id:
                     update_available = registry_image_id != container_image_id

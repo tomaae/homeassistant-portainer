@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "~/.local/bin/pytest",
+      "args": ["tests/", "-v", "--tb=short"],
+      "group": "test",
+      "isBackground": false,
+      "problemMatcher": ["$pytest"]
+    }
+  ]
+}
