@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from logging import getLogger
 
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.config_entries import ConfigEntry
@@ -18,6 +19,8 @@ from custom_components.portainer.const import DOMAIN
 from .coordinator import PortainerCoordinator
 from .entity import PortainerEntity, async_create_sensors
 from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
+
+_LOGGER = getLogger(__name__)
 
 
 # ---------------------------
@@ -50,24 +53,93 @@ async def async_setup_entry(
             platform.async_register_entity_service(service[0], service[1], service[2])
 
     entities = await async_create_sensors(coordinator, descriptions, dispatcher)
-    async_add_entities_callback(entities, update_before_add=True)
+
+    # Additional safety check: remove any duplicates by unique_id within the batch
+    unique_entities = []
+    seen_unique_ids = set()
+    for entity in entities:
+        if hasattr(entity, "unique_id") and entity.unique_id:
+            if entity.unique_id not in seen_unique_ids:
+                unique_entities.append(entity)
+                seen_unique_ids.add(entity.unique_id)
+            else:
+                _LOGGER.warning(
+                    "Removing duplicate entity with unique_id: %s", entity.unique_id
+                )
+        else:
+            _LOGGER.warning("Entity without unique_id found during setup, skipping")
+
+    async_add_entities_callback(unique_entities, update_before_add=True)
 
     @callback
     async def async_update_controller(coordinator):
         """Update entities when data changes."""
-        # Use the platform reference we already have
-        existing_entities = platform.entities
+        from homeassistant.helpers import entity_registry as er
+
+        # Use entity registry to get all existing entities for this config entry
+        entity_registry = er.async_get(hass)
+        existing_entities_in_registry = er.async_entries_for_config_entry(
+            entity_registry, config_entry.entry_id
+        )
+        existing_unique_ids = {
+            entity.unique_id
+            for entity in existing_entities_in_registry
+            if entity.unique_id and entity.platform == "portainer"
+        }
+
+        # Also check current platform entities as additional safety measure
+        try:
+            platform_entities = (
+                platform._entities if hasattr(platform, "_entities") else []
+            )
+            platform_unique_ids = {
+                entity.unique_id
+                for entity in platform_entities
+                if hasattr(entity, "unique_id") and entity.unique_id
+            }
+            existing_unique_ids.update(platform_unique_ids)
+            _LOGGER.debug(
+                "async_update_controller: registry=%d entities, platform=%d entities, total_unique_ids=%d",
+                len(existing_entities_in_registry),
+                len(platform_entities),
+                len(existing_unique_ids),
+            )
+        except (AttributeError, TypeError) as e:
+            _LOGGER.debug("Could not access platform entities: %s", e)
+
         new_entities = []
         entities = await async_create_sensors(coordinator, descriptions, dispatcher)
         for entity in entities:
-            unique_id = entity.unique_id
-            if unique_id in [e.unique_id for e in existing_entities.values()]:
+            try:
+                unique_id = entity.unique_id
+                entity_name = entity.name
+            except (AttributeError, TypeError, KeyError) as e:
+                _LOGGER.error("Error accessing entity properties during update: %s", e)
                 continue
 
+            if not unique_id:
+                _LOGGER.warning("Skipping entity with no unique_id during update")
+                continue
+            if not entity_name or entity_name.strip() == "":
+                _LOGGER.warning(
+                    "Skipping entity with no name during update: unique_id=%s",
+                    unique_id,
+                )
+                continue
+            if unique_id in existing_unique_ids:
+                _LOGGER.debug("Skipping existing entity: %s", unique_id)
+                continue
+
+            _LOGGER.debug("Found new entity to add: %s", unique_id)
             new_entities.append(entity)
+            # Add to existing set to prevent duplicates within this update cycle
+            existing_unique_ids.add(unique_id)
 
         if new_entities:
+            _LOGGER.info("Adding %d new entities", len(new_entities))
             async_add_entities_callback(new_entities, update_before_add=True)
+        else:
+            _LOGGER.debug("No new entities to add")
 
     # Connect listener per config_entry
     config_entry.async_on_unload(

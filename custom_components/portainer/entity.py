@@ -30,15 +30,10 @@ _LOGGER = getLogger(__name__)
 async def async_create_sensors(
     coordinator: PortainerCoordinator, descriptions: list, dispatcher: dict
 ) -> list[PortainerEntity]:
-    hass = coordinator.hass
-    config_entry = coordinator.config_entry
+    """Create Portainer sensor entities."""
 
-    # Get existing entities to avoid duplicates
-    existing_entities = (
-        hass.data[DOMAIN]
-        .setdefault(config_entry.entry_id, {})
-        .setdefault("entities", {})
-    )
+    # Create a list to store new entities (not reusing existing ones)
+    new_entities = []
 
     for description in descriptions:
         # Ensure data path exists, create empty dict if needed
@@ -60,22 +55,152 @@ async def async_create_sensors(
 
             # Create a temporary object to get the unique_id
             temp_obj = dispatcher[description.func](coordinator, description)
-            unique_id = temp_obj.unique_id
 
-            # Only add if not already exists
-            if unique_id not in existing_entities:
-                existing_entities[unique_id] = temp_obj
+            # Validate the temp object has required properties
+            try:
+                unique_id = temp_obj.unique_id
+                entity_name = temp_obj.name
+            except (AttributeError, TypeError, KeyError) as e:
+                _LOGGER.error(
+                    "Error accessing properties of entity %s: %s",
+                    description.key,
+                    e,
+                )
+                continue
+
+            _LOGGER.debug(
+                "Creating entity for %s: unique_id=%s, name=%s",
+                description.key,
+                unique_id,
+                entity_name,
+            )
+
+            # Skip if unique_id is None or empty
+            if not unique_id or unique_id.strip() == "":
+                _LOGGER.warning(
+                    "Skipping entity creation for %s: unique_id is None or empty (%s)",
+                    description.key,
+                    repr(unique_id),
+                )
+                continue
+
+            # Skip if name is None or empty
+            if not entity_name or entity_name.strip() == "":
+                _LOGGER.warning(
+                    "Skipping entity creation for %s: name is None or empty (%s)",
+                    description.key,
+                    repr(entity_name),
+                )
+                continue
+
+            # Check if we already have an entity with this unique_id in our new list
+            if any(e.unique_id == unique_id for e in new_entities):
+                _LOGGER.debug(
+                    "Entity with unique_id %s already in new_entities, skipping",
+                    unique_id,
+                )
+                continue
+
+            _LOGGER.debug(
+                "Adding entity to new_entities: unique_id=%s, name=%s, type=%s",
+                unique_id,
+                entity_name,
+                type(temp_obj).__name__,
+            )
+            new_entities.append(temp_obj)
         else:
             for uid in data:
                 # Create a temporary object to get the unique_id
                 temp_obj = dispatcher[description.func](coordinator, description, uid)
-                unique_id = temp_obj.unique_id
 
-                # Only add if not already exists
-                if unique_id not in existing_entities:
-                    existing_entities[unique_id] = temp_obj
+                # Validate the temp object has required properties
+                try:
+                    unique_id = temp_obj.unique_id
+                    entity_name = temp_obj.name
+                except (AttributeError, TypeError, KeyError) as e:
+                    _LOGGER.error(
+                        "Error accessing properties of entity %s (uid: %s): %s",
+                        description.key,
+                        uid,
+                        e,
+                    )
+                    continue
 
-    return list(existing_entities.values())
+                # Skip if unique_id is None or empty
+                if not unique_id or unique_id.strip() == "":
+                    _LOGGER.warning(
+                        "Skipping entity creation for %s (uid: %s): unique_id is None or empty (%s)",
+                        description.key,
+                        uid,
+                        repr(unique_id),
+                    )
+                    continue
+
+                # Skip if name is None or empty
+                if not entity_name or entity_name.strip() == "":
+                    _LOGGER.warning(
+                        "Skipping entity creation for %s (uid: %s): name is None or empty (%s)",
+                        description.key,
+                        uid,
+                        repr(entity_name),
+                    )
+                    continue
+
+                # Check if we already have an entity with this unique_id in our new list
+                if any(e.unique_id == unique_id for e in new_entities):
+                    _LOGGER.debug(
+                        "Entity with unique_id %s already in new_entities, skipping",
+                        unique_id,
+                    )
+                    continue
+
+                _LOGGER.debug(
+                    "Adding entity with uid to new_entities: unique_id=%s, name=%s, uid=%s, type=%s",
+                    unique_id,
+                    entity_name,
+                    uid,
+                    type(temp_obj).__name__,
+                )
+                new_entities.append(temp_obj)
+
+    # Final validation before returning entities
+    final_entities = []
+    for entity in new_entities:
+        try:
+            unique_id = entity.unique_id
+            entity_name = entity.name
+            entity_id = getattr(entity, "entity_id", None)
+
+            if not unique_id or unique_id.strip() == "":
+                _LOGGER.error(
+                    "Filtering out entity with invalid unique_id: %s (name: %s, entity_id: %s)",
+                    repr(unique_id),
+                    repr(entity_name),
+                    repr(entity_id),
+                )
+                continue
+            if not entity_name or entity_name.strip() == "":
+                _LOGGER.error(
+                    "Filtering out entity with invalid name: %s (unique_id: %s, entity_id: %s)",
+                    repr(entity_name),
+                    repr(unique_id),
+                    repr(entity_id),
+                )
+                continue
+
+            final_entities.append(entity)
+            _LOGGER.debug(
+                "Final entity validation passed: unique_id=%s, name=%s, entity_id=%s",
+                unique_id,
+                entity_name,
+                entity_id,
+            )
+        except (AttributeError, TypeError, KeyError) as e:
+            _LOGGER.error("Error validating entity during final check: %s", e)
+            continue
+
+    _LOGGER.debug("Returning %d validated entities", len(final_entities))
+    return final_entities
 
 
 # ---------------------------
@@ -102,6 +227,8 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         self._attr_extra_state_attributes = {ATTR_ATTRIBUTION: ATTRIBUTION}
         self._uid = uid
         self._data = coordinator.data[self.description.data_path]
+
+        # Always ensure we have a valid unique_id
         if self._uid:
             self._data = coordinator.data[self.description.data_path][self._uid]
             # build _attr_unique_id (with _uid)
@@ -113,9 +240,48 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
             self._attr_unique_id = (
                 f"{self._inst.lower()}-{self.description.key}-{slugify(slug)}"
             )
+            _LOGGER.debug(
+                "Created unique_id with uid: %s for %s",
+                self._attr_unique_id,
+                self.description.key,
+            )
         else:
             # build _attr_unique_id (no _uid)
-            self._attr_unique_id = f"{self._inst.lower()}-{self.description.key}-{slugify(self.get_config_entry_id()).lower()}"
+            config_entry_id = self.get_config_entry_id()
+            self._attr_unique_id = f"{self._inst.lower()}-{self.description.key}-{slugify(config_entry_id).lower()}"
+            _LOGGER.debug(
+                "Created unique_id without uid: %s for %s",
+                self._attr_unique_id,
+                self.description.key,
+            )
+
+        # Safety check: Ensure unique_id is never None or empty
+        if not self._attr_unique_id:
+            fallback_id = (
+                f"fallback-{getattr(description, 'key', 'unknown')}-{id(self)}"
+            )
+            _LOGGER.error(
+                "unique_id was None or empty for entity %s, using fallback: %s",
+                getattr(description, "key", "unknown"),
+                fallback_id,
+            )
+            self._attr_unique_id = fallback_id
+
+        # Final validation
+        _LOGGER.debug(
+            "Entity initialized: key=%s, unique_id=%s, name=%s",
+            getattr(description, "key", "unknown"),
+            self._attr_unique_id,
+            self.name,
+        )
+
+        # Additional safety check: ensure name is never empty
+        entity_name = self.name
+        if not entity_name or entity_name.strip() == "":
+            _LOGGER.error(
+                "Entity name is empty for %s, this will cause entity_id issues",
+                getattr(description, "key", "unknown"),
+            )
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -128,18 +294,59 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
             super()._handle_coordinator_update()
         except KeyError:
             _LOGGER.debug("Error while updating entity %s", self.unique_id)
-            pass
 
     @property
     def name(self) -> str:
         """Return the name for this entity."""
-        if not self._uid:
-            return f"{self.description.name}"
+        try:
+            if not self._uid:
+                # Ensure description.name is not None
+                desc_name = getattr(self.description, "name", None)
+                if desc_name:
+                    result = str(desc_name)
+                else:
+                    result = f"Portainer {getattr(self.description, 'key', 'Entity')}"
+                _LOGGER.debug("Entity name (no uid): %s", result)
+                return result
 
-        if self.description.name:
-            return f"{self._data[self.description.data_name]} {self.description.name}"
+            # With uid - ensure data_name exists and is not None
+            if not hasattr(self, "_data") or self._data is None:
+                _LOGGER.warning(
+                    "_data not available yet for entity %s",
+                    getattr(self.description, "key", "unknown"),
+                )
+                return f"Container {self._uid}"
 
-        return f"{self._data[self.description.data_name]}"
+            data_name_key = getattr(self.description, "data_name", None)
+            if (
+                data_name_key
+                and data_name_key in self._data
+                and self._data[data_name_key]
+            ):
+                base_name = str(self._data[data_name_key])
+            else:
+                base_name = f"Container {self._uid}"
+
+            desc_name = getattr(self.description, "name", None)
+            if desc_name:
+                result = f"{base_name} {desc_name}"
+            else:
+                result = base_name
+
+            _LOGGER.debug("Entity name (with uid %s): %s", self._uid, result)
+        except (AttributeError, KeyError, TypeError) as e:
+            _LOGGER.error(
+                "Error getting entity name for %s: %s",
+                getattr(self.description, "key", "unknown"),
+                e,
+            )
+            result = f"Portainer {getattr(self.description, 'key', 'Entity')}"
+            if self._uid:
+                result += f" {self._uid}"
+        else:
+            return result
+
+        return result
 
     @property
     def available(self) -> bool:
@@ -189,12 +396,11 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
                 sw_version=f"{self.sw_version}",
                 configuration_url=f"http{'s' if self.coordinator.config_entry.data[CONF_SSL] else ''}://{self.coordinator.config_entry.data[CONF_HOST]}",
             )
-        else:
-            return DeviceInfo(
-                connections={(dev_connection, f"{dev_connection_value}")},
-                default_name=f"{self._inst} {dev_group}",
-                default_manufacturer=f"{self.manufacturer}",
-            )
+        return DeviceInfo(
+            connections={(dev_connection, f"{dev_connection_value}")},
+            default_name=f"{self._inst} {dev_group}",
+            default_manufacturer=f"{self.manufacturer}",
+        )
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any]:
@@ -217,27 +423,39 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         """Return the icon."""
         return self.description.icon
 
+    @property
+    def unique_id(self) -> str:
+        """Return unique ID for this entity."""
+        if not self._attr_unique_id:
+            _LOGGER.error(
+                "unique_id is None or empty for entity %s",
+                getattr(self.description, "key", "unknown"),
+            )
+            return f"fallback-{getattr(self.description, 'key', 'unknown')}"
+        return self._attr_unique_id
+
     async def start(self):
         """Run function."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def stop(self):
         """Stop function."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def restart(self):
         """Restart function."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def reload(self):
         """Reload function."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     async def snapshot(self):
         """Snapshot function."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def get_config_entry_id(self):
+        """Get the config entry ID."""
         if self.coordinator and self.coordinator.config_entry:
             return self.coordinator.config_entry.entry_id
-        return self.hass.config_entries.async_get_entry(self.handler)
+        return "unknown"
