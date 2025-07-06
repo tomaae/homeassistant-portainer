@@ -162,9 +162,7 @@ class TestUpdateCheckLogic:
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
         assert result == cached_result
 
-    @patch(
-        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
-    )
+    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_response_dict(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -183,9 +181,7 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch(
-        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
-    )
+    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_response_list(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -204,9 +200,7 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch(
-        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
-    )
+    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_error(
         self, mock_should_check, coordinator_with_mock
     ):
