@@ -40,7 +40,7 @@ black --check custom_components/ tests/
 ### Run All Tests
 
 ```bash
-# Run all 110 tests (all passing)
+# Run all 111 tests (all passing)
 python -m pytest tests/ -v
 
 # Run with coverage report
@@ -53,8 +53,8 @@ python -m pytest tests/ --cov=custom_components.portainer --cov-report=html
 # Entity availability tests (12 tests) ✅
 python -m pytest tests/test_availability_fix.py -v
 
-# Dynamic UI behavior tests (4 tests) ✅
-python -m pytest tests/test_dynamic_ui_reactive.py -v
+# Static UI behavior tests (5 tests) ✅
+python -m pytest tests/test_static_ui.py -v
 
 # Pure logic tests (24 tests) ✅
 python -m pytest tests/test_pure_logic.py -v
@@ -80,12 +80,12 @@ pytest tests/ --cov=custom_components/portainer --cov-report=html
 
 ## Test Status
 
-### All Tests Passing (110/110) ✅
+### All Tests Passing (111/111) ✅
 
 **Current Test Files (All Fully Working):**
 
 - ✅ `test_availability_fix.py` - Entity availability management (12 tests)
-- ✅ `test_dynamic_ui_reactive.py` - Dynamic UI behavior (4 tests)
+- ✅ `test_static_ui.py` - Static UI behavior (5 tests)
 - ✅ `test_pure_logic.py` - Core config flow logic (24 tests)
 - ✅ `test_tag_parsing.py` - Docker image parsing (37 tests)
 - ✅ `test_ui_field_visibility.py` - UI field visibility (5 tests)
@@ -100,22 +100,6 @@ pytest tests/ --cov=custom_components/portainer --cov-report=html
 - Perfect VS Code integration with test discovery
 - 100% test success rate
 - Comprehensive coverage of all major integration features
-
-## Summary
-
-**Cleanup and Refactoring Complete! ✅**
-
-All unit tests have been successfully refactored and cleaned up. The test suite now:
-
-- **110/110 tests passing** (100% success rate)
-- Uses proper Home Assistant fixtures and mocks
-- Follows pytest-homeassistant-custom-component conventions
-- Has clean imports without sys.path hacks
-- No duplicate or obsolete files
-- Perfect VS Code integration
-- Ready for production and CI/CD
-
-All obsolete `_old` test files and duplicate code have been removed, leaving only essential, framework-compliant tests.
 
 ## VS Code Integration
 
@@ -166,12 +150,13 @@ Wenn Tests in VS Code nicht erscheinen:
 
 All unit tests have been successfully refactored to consistently use the Home Assistant test framework (`pytest-homeassistant-custom-component`). The test suite now:
 
-- **110/110 tests passing** (100% success rate)
+- **116/116 tests passing** (100% success rate)
 - Uses proper Home Assistant fixtures and mocks
 - Follows pytest-homeassistant-custom-component conventions
 - Has clean imports without sys.path hacks
 - Maintains all original test functionality
 - Is ready for CI/CD integration
+- Uses a static UI approach where all fields are always visible
 
 All obsolete and duplicate test files have been removed, leaving only essential, working tests.
 
@@ -181,7 +166,7 @@ All obsolete and duplicate test files have been removed, leaving only essential,
 tests/
 ├── conftest.py                   # HA test framework configuration
 ├── test_availability_fix.py      # Entity availability (12 tests) ✅
-├── test_dynamic_ui_reactive.py   # Dynamic UI behavior (4 tests) ✅
+├── test_static_ui.py            # Static UI behavior (5 tests) ✅
 ├── test_pure_logic.py            # Core config flow logic (24 tests) ✅
 ├── test_tag_parsing.py           # Docker image parsing (37 tests) ✅
 ├── test_ui_field_visibility.py   # UI field visibility (5 tests) ✅

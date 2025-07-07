@@ -63,13 +63,17 @@ def event_loop():
         loop.close()
 
 
+# Constant for test config entry title and name
+TEST_PORTAINER_TITLE = "Test Portainer"
+
+
 @pytest.fixture
 def mock_config_entry_feature_enabled():
     """Create a mock config entry with update check feature enabled."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="Test Portainer",
-        data={"host": "localhost", "name": "Test Portainer"},
+        title=TEST_PORTAINER_TITLE,
+        data={"host": "localhost", "name": TEST_PORTAINER_TITLE},
         options={
             CONF_FEATURE_HEALTH_CHECK: True,
             CONF_FEATURE_RESTART_POLICY: True,
@@ -85,8 +89,8 @@ def mock_config_entry_feature_disabled():
     """Create a mock config entry with update check feature disabled."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="Test Portainer",
-        data={"host": "localhost", "name": "Test Portainer"},
+        title=TEST_PORTAINER_TITLE,
+        data={"host": "localhost", "name": TEST_PORTAINER_TITLE},
         options={
             CONF_FEATURE_HEALTH_CHECK: True,
             CONF_FEATURE_RESTART_POLICY: True,
@@ -102,8 +106,8 @@ def mock_config_entry_new():
     """Create a mock config entry for new installation (no options set)."""
     return MockConfigEntry(
         domain=DOMAIN,
-        title="Test Portainer",
-        data={"host": "localhost", "name": "Test Portainer"},
+        title=TEST_PORTAINER_TITLE,
+        data={"host": "localhost", "name": TEST_PORTAINER_TITLE},
         options={},
         entry_id="test_entry_new",
     )

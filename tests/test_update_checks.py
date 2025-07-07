@@ -168,7 +168,9 @@ class TestUpdateCheckLogic:
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
         assert result == cached_result
 
-    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch(
+        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
+    )
     def test_check_image_updates_api_response_dict(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -187,7 +189,9 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch(
+        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
+    )
     def test_check_image_updates_api_response_list(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -206,7 +210,9 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch(
+        "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
+    )
     def test_check_image_updates_api_error(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -284,22 +290,24 @@ class TestUpdateCheckIntegration:
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
         coordinator.hass = hass
         coordinator.config_entry = mock_config_entry
-        
+
         # Basic initialization checks
         assert coordinator.hass == hass
         assert coordinator.config_entry == mock_config_entry
 
-    def test_update_check_with_hass_context(self, hass: HomeAssistant, coordinator_with_mock):
+    def test_update_check_with_hass_context(
+        self, hass: HomeAssistant, coordinator_with_mock
+    ):
         """Test update check functionality within Home Assistant context."""
         # Ensure the coordinator is properly integrated with Home Assistant
         coordinator_with_mock.hass = hass
-        
+
         # Test that update checks work within HA context
         container_data = {
             "Id": "test_container",
             "Name": "/test",
             "Image": "nginx:latest",
         }
-        
+
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
         assert isinstance(result, bool)

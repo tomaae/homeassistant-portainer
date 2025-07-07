@@ -42,23 +42,23 @@ def validate_time_string(value):
     """Validate time string in HH:MM format."""
     if not isinstance(value, str):
         raise vol.Invalid("Time must be a string in HH:MM format")
-    
+
     # Check format with regex - allow single digit minutes too
-    time_pattern = re.compile(r'^([01]?[0-9]|2[0-3]):([0-5]?[0-9])$')
+    time_pattern = re.compile(r"^([01]?\d|2[0-3]):([0-5]?\d)$")
     match = time_pattern.match(value)
-    
+
     if not match:
         raise vol.Invalid("Time must be in HH:MM format (e.g., 04:30)")
-    
+
     hours = int(match.group(1))
     minutes = int(match.group(2))
-    
+
     # Additional validation (redundant but safe)
     if not (0 <= hours <= 23):
         raise vol.Invalid("Hours must be between 0 and 23")
     if not (0 <= minutes <= 59):
         raise vol.Invalid("Minutes must be between 0 and 59")
-    
+
     return value
 
 
@@ -172,191 +172,85 @@ class PortainerOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         errors = {}
-        
+
         if user_input is not None:
-            # Check if this is just a checkbox state change (reactive update)
-            if self._is_checkbox_change(user_input):
-                # Show form again with updated schema
-                return await self._show_form_with_dynamic_schema(user_input, errors)
-            
-            # Full validation for final submission
-            if user_input.get(CONF_FEATURE_UPDATE_CHECK) and CONF_UPDATE_CHECK_TIME in user_input:
+            # Full validation for submission
+            if (
+                user_input.get(CONF_FEATURE_UPDATE_CHECK)
+                and CONF_UPDATE_CHECK_TIME in user_input
+            ):
                 time_str = user_input[CONF_UPDATE_CHECK_TIME]
                 try:
                     import time
+
                     time.strptime(time_str, "%H:%M")
                 except ValueError:
                     errors[CONF_UPDATE_CHECK_TIME] = "invalid_time_format"
-            
+
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
         # Initial form display or error case
         current_data = self.config_entry.options or {}
-        return await self._show_form_with_dynamic_schema(current_data, errors)
+        return await self._show_form_with_static_schema(current_data, errors)
 
-    def _is_checkbox_change(self, user_input):
-        """Check if this is just a checkbox state change."""
-        # Handle empty input as initial form load (not a checkbox change)
-        if not user_input:
-            return False
-            
-        # If only feature switches are present and update check time is missing when it should be present,
-        # it's likely a checkbox change
-        feature_keys = {CONF_FEATURE_HEALTH_CHECK, CONF_FEATURE_RESTART_POLICY, CONF_FEATURE_UPDATE_CHECK}
-        
-        # If all keys are feature keys
-        if all(key in feature_keys for key in user_input.keys()):
-            # If update check is enabled but time field is missing, it's a checkbox change
-            if user_input.get(CONF_FEATURE_UPDATE_CHECK) and CONF_UPDATE_CHECK_TIME not in user_input:
-                return True
-            # If update check is disabled, it's complete (no time field needed)
-            if not user_input.get(CONF_FEATURE_UPDATE_CHECK):
-                return False
-        
-        return False
-
-    async def _show_form_with_dynamic_schema(self, data, errors=None):
-        """Show form with dynamic schema based on current data."""
-        update_check_enabled = data.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
-        
-        # Build base schema
+    async def _show_form_with_static_schema(self, data, errors=None):
+        """Show form with static schema - all fields always visible."""
+        # Build complete schema with all fields always visible
         schema_dict = {
             vol.Optional(
                 CONF_FEATURE_HEALTH_CHECK,
-                default=data.get(CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK),
-                description="Enable health check monitoring for containers"
+                default=data.get(
+                    CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK
+                ),
+                description="Enable health check monitoring for containers",
             ): bool,
             vol.Optional(
                 CONF_FEATURE_RESTART_POLICY,
-                default=data.get(CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY),
-                description="Enable restart policy monitoring for containers"
+                default=data.get(
+                    CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
+                ),
+                description="Enable restart policy monitoring for containers",
             ): bool,
             vol.Optional(
                 CONF_FEATURE_UPDATE_CHECK,
-                default=update_check_enabled,
-                description="Enable automatic container update checking"
+                default=data.get(
+                    CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+                ),
+                description="Enable automatic container update checking",
             ): bool,
-        }
-
-        # Conditionally add time picker ONLY if update check is enabled
-        if update_check_enabled:
-            schema_dict[vol.Optional(
+            vol.Optional(
                 CONF_UPDATE_CHECK_TIME,
                 default=data.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME),
-                description="Daily update check time in HH:MM format"
-            )] = str
+                description="Daily update check time in HH:MM format (only used when update check is enabled)",
+            ): str,
+        }
 
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(schema_dict),
             errors=errors,
-            description_placeholders=self._get_description_placeholders_dynamic(update_check_enabled, data)
+            description_placeholders=self._get_description_placeholders_static(data),
         )
 
-    def _get_dynamic_options_schema(self, update_check_enabled, input_values=None):
-        """Get the options schema with conditional time picker based on explicit status."""
-        if input_values is None:
-            input_values = {}
-            
-        # Base schema - always visible fields
-        options_schema = {
-            # Container Features
-            vol.Optional(
-                CONF_FEATURE_HEALTH_CHECK,
-                default=input_values.get(
-                    CONF_FEATURE_HEALTH_CHECK,
-                    self.config_entry.options.get(CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK)
-                ),
-                description="Enable health check monitoring for containers"
-            ): bool,
-            
-            vol.Optional(
-                CONF_FEATURE_RESTART_POLICY,
-                default=input_values.get(
-                    CONF_FEATURE_RESTART_POLICY,
-                    self.config_entry.options.get(CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY)
-                ),
-                description="Enable restart policy monitoring for containers"
-            ): bool,
-            
-            # Update Check Feature
-            vol.Optional(
-                CONF_FEATURE_UPDATE_CHECK,
-                default=update_check_enabled,
-                description="Enable automatic container update checking"
-            ): bool,
-        }
-        
-        # Conditionally add time field ONLY if update check is enabled
-        if update_check_enabled:
-            options_schema[vol.Optional(
-                CONF_UPDATE_CHECK_TIME,
-                default=input_values.get(
-                    CONF_UPDATE_CHECK_TIME,
-                    self.config_entry.options.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME)
-                ),
-                description="Daily update check time in HH:MM format"
-            )] = str
-        
-        return vol.Schema(options_schema)
-
-    def _get_options_schema(self):
-        """Get the options schema with conditional time picker."""
-        # This method is kept for backwards compatibility but delegates to the dynamic version
-        current_update_check = self.config_entry.options.get(
+    def _get_description_placeholders_static(self, data):
+        """Get description placeholders for static form."""
+        current_update_check = data.get(
             CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
         )
-        return self._get_dynamic_options_schema(current_update_check)
-
-    def _get_description_placeholders_dynamic(self, update_check_enabled, data):
-        """Get description placeholders with dynamic update check status."""
         current_time = data.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME)
-        
-        if update_check_enabled:
-            status_info = f"Update checking is enabled and will run daily at {current_time}"
-        else:
-            status_info = "Update checking is disabled. Time setting not needed."
-        
-        return {
-            "update_status": "Enabled" if update_check_enabled else "Disabled",
-            "current_time": current_time,
-            "info": f"Configure Portainer monitoring features. {status_info}"
-        }
 
-    def _get_description_placeholders(self):
-        """Get description placeholders for the form."""
-        current_update_check = self.config_entry.options.get(
-            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
-        )
-        current_time = self.config_entry.options.get(
-            CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME
-        )
-        
         if current_update_check:
-            status_info = f"Update checking is currently enabled and runs daily at {current_time}"
+            status_info = (
+                f"Update checking is enabled and will run daily at {current_time}"
+            )
         else:
-            status_info = "Update checking is currently disabled"
-        
+            status_info = (
+                "Update checking is disabled. Time setting is ignored when disabled."
+            )
+
         return {
             "update_status": "Enabled" if current_update_check else "Disabled",
             "current_time": current_time,
-            "info": f"Configure Portainer monitoring features. {status_info}"
-        }
-
-    def _get_description_placeholders_with_temp(self, temp_update_check):
-        """Get description placeholders with temporary update check status."""
-        current_time = self.config_entry.options.get(
-            CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME
-        )
-        
-        if temp_update_check:
-            status_info = "Update checking will be enabled. Set the time when checks should run daily."
-        else:
-            status_info = "Update checking will be disabled. Time setting is not needed."
-        
-        return {
-            "update_status": "Will be Enabled" if temp_update_check else "Will be Disabled",
-            "current_time": current_time,
-            "info": f"Configure Portainer monitoring features. {status_info}"
+            "info": f"Configure Portainer monitoring features. {status_info}",
         }

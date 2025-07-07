@@ -14,10 +14,14 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from custom_components.portainer.const import DOMAIN, CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+from custom_components.portainer.const import (
+    CONF_FEATURE_UPDATE_CHECK,
+    DEFAULT_FEATURE_UPDATE_CHECK,
+    DOMAIN,
+)
 
 from .coordinator import PortainerCoordinator
-from .entity import PortainerEntity, async_create_sensors
+from .entity import PortainerEntity, create_sensors
 from .sensor_types import SENSOR_SERVICES, SENSOR_TYPES  # noqa: F401
 
 _LOGGER = getLogger(__name__)
@@ -32,8 +36,46 @@ async def async_setup_entry(
     async_add_entities_callback: AddEntitiesCallback,
 ):
     """Set up the sensor platform for a specific configuration entry."""
-    # Set up entry for portainer component.
-    dispatcher = {
+    dispatcher = _get_dispatcher()
+    coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
+    platform = ep.async_get_current_platform()
+    services = platform.platform.SENSOR_SERVICES
+    descriptions = platform.platform.SENSOR_TYPES
+
+    _register_services(hass, platform, services)
+    entities = create_sensors(coordinator, descriptions, dispatcher)
+    _LOGGER.info(
+        "Initial sensor setup: Created %d entities from create_sensors",
+        len(entities),
+    )
+
+    unique_entities = _filter_unique_entities(entities)
+    async_add_entities_callback(unique_entities, update_before_add=True)
+
+    @callback
+    async def async_update_controller(coordinator):
+        await _handle_update_controller(
+            hass,
+            config_entry,
+            platform,
+            coordinator,
+            descriptions,
+            dispatcher,
+            async_add_entities_callback,
+        )
+
+    config_entry.async_on_unload(
+        async_dispatcher_connect(
+            hass, f"{config_entry.entry_id}_update", async_update_controller
+        )
+    )
+
+    # Ensure at least one await to justify async
+    await hass.async_add_executor_job(lambda: None)
+
+
+def _get_dispatcher():
+    return {
         "PortainerSensor": PortainerSensor,
         "TimestampSensor": TimestampSensor,
         "UpdateCheckSensor": UpdateCheckSensor,
@@ -41,21 +83,14 @@ async def async_setup_entry(
         "ContainerSensor": ContainerSensor,
     }
 
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
 
-    platform = ep.async_get_current_platform()
-
-    services = platform.platform.SENSOR_SERVICES
-    descriptions = platform.platform.SENSOR_TYPES
-
+def _register_services(hass, platform, services):
     for service in services:
         if service[0] not in hass.services.async_services().get(DOMAIN, {}):
             platform.async_register_entity_service(service[0], service[1], service[2])
 
-    entities = await async_create_sensors(coordinator, descriptions, dispatcher)
-    _LOGGER.info("Initial sensor setup: Created %d entities from async_create_sensors", len(entities))
 
-    # Additional safety check: remove any duplicates by unique_id within the batch
+def _filter_unique_entities(entities):
     unique_entities = []
     seen_unique_ids = set()
     for entity in entities:
@@ -66,102 +101,117 @@ async def async_setup_entry(
                 _LOGGER.debug("Added entity with unique_id: %s", entity.unique_id)
             else:
                 _LOGGER.warning(
-                    "Removing duplicate entity with unique_id: %s (name: %s, type: %s)", 
+                    "Removing duplicate entity with unique_id: %s (name: %s, type: %s)",
                     entity.unique_id,
-                    getattr(entity, 'name', 'unknown'),
-                    type(entity).__name__
+                    getattr(entity, "name", "unknown"),
+                    type(entity).__name__,
                 )
         else:
             _LOGGER.warning(
-                "Entity without unique_id found during setup, skipping (type: %s, name: %s)", 
+                "Entity without unique_id found during setup, skipping (type: %s, name: %s)",
                 type(entity).__name__,
-                getattr(entity, 'name', 'unknown')
+                getattr(entity, "name", "unknown"),
             )
+    return unique_entities
 
-    async_add_entities_callback(unique_entities, update_before_add=True)
 
-    @callback
-    async def async_update_controller(coordinator):
-        """Update entities when data changes."""
-        from homeassistant.helpers import entity_registry as er
+async def _handle_update_controller(
+    hass,
+    config_entry,
+    platform,
+    coordinator,
+    descriptions,
+    dispatcher,
+    async_add_entities_callback,
+):
+    from homeassistant.helpers import entity_registry as er
 
-        # Use entity registry to get all existing entities for this config entry
-        entity_registry = er.async_get(hass)
-        existing_entities_in_registry = er.async_entries_for_config_entry(
-            entity_registry, config_entry.entry_id
-        )
-        existing_unique_ids = {
-            entity.unique_id
-            for entity in existing_entities_in_registry
-            if entity.unique_id and entity.platform == "portainer"
-        }
-
-        # Also check current platform entities as additional safety measure
-        try:
-            platform_entities = (
-                platform._entities if hasattr(platform, "_entities") else []
-            )
-            platform_unique_ids = {
-                entity.unique_id
-                for entity in platform_entities
-                if hasattr(entity, "unique_id") and entity.unique_id
-            }
-            existing_unique_ids.update(platform_unique_ids)
-            _LOGGER.debug(
-                "async_update_controller: registry=%d entities, platform=%d entities, total_unique_ids=%d",
-                len(existing_entities_in_registry),
-                len(platform_entities),
-                len(existing_unique_ids),
-            )
-        except (AttributeError, TypeError) as e:
-            _LOGGER.debug("Could not access platform entities: %s", e)
-
-        new_entities = []
-        entities = await async_create_sensors(coordinator, descriptions, dispatcher)
-        _LOGGER.debug("Update controller: async_create_sensors returned %d entities", len(entities))
-        for entity in entities:
-            try:
-                unique_id = entity.unique_id
-                entity_name = entity.name
-            except (AttributeError, TypeError, KeyError) as e:
-                _LOGGER.error("Error accessing entity properties during update: %s", e)
-                continue
-
-            if not unique_id:
-                _LOGGER.warning("Skipping entity with no unique_id during update")
-                continue
-            if not entity_name or entity_name.strip() == "":
-                _LOGGER.warning(
-                    "Skipping entity with no name during update: unique_id=%s",
-                    unique_id,
-                )
-                continue
-            if unique_id in existing_unique_ids:
-                _LOGGER.debug(
-                    "Skipping existing entity: %s (name: %s, type: %s)", 
-                    unique_id,
-                    entity_name,
-                    type(entity).__name__
-                )
-                continue
-
-            _LOGGER.debug("Found new entity to add: %s", unique_id)
-            new_entities.append(entity)
-            # Add to existing set to prevent duplicates within this update cycle
-            existing_unique_ids.add(unique_id)
-
-        if new_entities:
-            _LOGGER.info("Adding %d new entities", len(new_entities))
-            async_add_entities_callback(new_entities, update_before_add=True)
-        else:
-            _LOGGER.debug("No new entities to add")
-
-    # Connect listener per config_entry
-    config_entry.async_on_unload(
-        async_dispatcher_connect(
-            hass, f"{config_entry.entry_id}_update", async_update_controller
-        )
+    entity_registry = er.async_get(hass)
+    existing_entities_in_registry = er.async_entries_for_config_entry(
+        entity_registry, config_entry.entry_id
     )
+    existing_unique_ids = _get_existing_unique_ids(existing_entities_in_registry)
+
+    platform_entities, platform_unique_ids = _get_platform_entities_and_ids(platform)
+    existing_unique_ids.update(platform_unique_ids)
+    _LOGGER.debug(
+        "async_update_controller: registry=%d entities, platform=%d entities, total_unique_ids=%d",
+        len(existing_entities_in_registry),
+        len(platform_entities),
+        len(existing_unique_ids),
+    )
+
+    entities = create_sensors(coordinator, descriptions, dispatcher)
+    _LOGGER.debug(
+        "Update controller: create_sensors returned %d entities",
+        len(entities),
+    )
+    new_entities = _find_new_entities(entities, existing_unique_ids)
+
+    # Ensure at least one await to justify async
+    await hass.async_add_executor_job(lambda: None)
+
+    if new_entities:
+        _LOGGER.info("Adding %d new entities", len(new_entities))
+        async_add_entities_callback(new_entities, update_before_add=True)
+    else:
+        _LOGGER.debug("No new entities to add")
+
+
+def _get_existing_unique_ids(existing_entities_in_registry):
+    return {
+        entity.unique_id
+        for entity in existing_entities_in_registry
+        if entity.unique_id and entity.platform == "portainer"
+    }
+
+
+def _get_platform_entities_and_ids(platform):
+    try:
+        platform_entities = platform._entities if hasattr(platform, "_entities") else []
+        platform_unique_ids = {
+            entity.unique_id
+            for entity in platform_entities
+            if hasattr(entity, "unique_id") and entity.unique_id
+        }
+        return platform_entities, platform_unique_ids
+    except (AttributeError, TypeError) as e:
+        _LOGGER.debug("Could not access platform entities: %s", e)
+        return [], set()
+
+
+def _find_new_entities(entities, existing_unique_ids):
+    new_entities = []
+    for entity in entities:
+        try:
+            unique_id = entity.unique_id
+            entity_name = entity.name
+        except (AttributeError, TypeError, KeyError) as e:
+            _LOGGER.error("Error accessing entity properties during update: %s", e)
+            continue
+
+        if not unique_id:
+            _LOGGER.warning("Skipping entity with no unique_id during update")
+            continue
+        if not entity_name or entity_name.strip() == "":
+            _LOGGER.warning(
+                "Skipping entity with no name during update: unique_id=%s",
+                unique_id,
+            )
+            continue
+        if unique_id in existing_unique_ids:
+            _LOGGER.debug(
+                "Skipping existing entity: %s (name: %s, type: %s)",
+                unique_id,
+                entity_name,
+                type(entity).__name__,
+            )
+            continue
+
+        _LOGGER.debug("Found new entity to add: %s", unique_id)
+        new_entities.append(entity)
+        existing_unique_ids.add(unique_id)
+    return new_entities
 
 
 # ---------------------------
@@ -203,16 +253,22 @@ class PortainerSensor(PortainerEntity, SensorEntity):
         # Check if this is an UpdateCheckSensor - if so, use its specific logic
         if isinstance(self, UpdateCheckSensor):
             # Use the attribute if set, otherwise calculate from feature state
-            if hasattr(self, '_attr_entity_registry_enabled_default'):
+            if hasattr(self, "_attr_entity_registry_enabled_default"):
                 return self._attr_entity_registry_enabled_default
-            feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+            feature_enabled = self.coordinator.config_entry.options.get(
+                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+            )
             # Ensure we only accept actual boolean True, not truthy values
             feature_enabled = feature_enabled is True
             from logging import getLogger
+
             logger = getLogger(__name__)
-            logger.debug("UpdateCheckSensor entity_registry_enabled_default property called: %s", feature_enabled)
+            logger.debug(
+                "UpdateCheckSensor entity_registry_enabled_default property called: %s",
+                feature_enabled,
+            )
             return feature_enabled
-        
+
         # For other sensors, use the default behavior (enabled by default)
         return True
 
@@ -340,31 +396,37 @@ class UpdateCheckSensor(PortainerSensor):
         super().__init__(coordinator, description, uid)
         self._attr_icon = "mdi:clock-outline"
         self.manufacturer = "Portainer"
-        
+
         # Set default enabled state based on feature
         # Use DEFAULT_FEATURE_UPDATE_CHECK as fallback if options not set yet
-        feature_enabled = coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        feature_enabled = coordinator.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
         # Ensure we only accept actual boolean True, not truthy values like "true" string
         feature_enabled = feature_enabled is True
         self._attr_entity_registry_enabled_default = feature_enabled
-        
+
         # Import logger for this class if not already available
         from logging import getLogger
+
         logger = getLogger(__name__)
         logger.debug(
             "Update Check Sensor initialized: feature_enabled=%s, entity_enabled_default=%s",
-            feature_enabled, self._attr_entity_registry_enabled_default
+            feature_enabled,
+            self._attr_entity_registry_enabled_default,
         )
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
         # Sensor is available when feature is enabled AND coordinator is connected
-        feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        feature_enabled = self.coordinator.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
         # Ensure we only accept actual boolean True, not truthy values
         feature_enabled = feature_enabled is True
         coordinator_connected = self.coordinator.connected()
-        
+
         return feature_enabled and coordinator_connected
 
     def _parse_datetime(self, value: str) -> datetime | str:

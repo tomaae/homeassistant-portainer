@@ -9,13 +9,12 @@ import voluptuous as vol
 # Test time validation directly
 def validate_time_string_pure(value):
     """Pure copy of time validation for testing."""
-    import re
 
     if not isinstance(value, str):
         raise vol.Invalid("Time must be a string in HH:MM format")
 
     # Check format with regex - allow single digit minutes too
-    time_pattern = re.compile(r"^([01]?[0-9]|2[0-3]):([0-5]?[0-9])$")
+    time_pattern = re.compile(r"^([01]?\d|2[0-3]):([0-5]?\d)$")
     match = time_pattern.match(value)
 
     if not match:
@@ -141,16 +140,16 @@ class MockOptionsFlow:
         )
 
         if temp_update_check:
-            status_info = f"Update checking will be enabled. Set the time when checks should run daily."
+            status_info = "Update checking will be enabled. Set the time when checks should run daily."
         else:
             status_info = (
                 "Update checking will be disabled. Time setting is not needed."
             )
 
         return {
-            "update_status": "Will be Enabled"
-            if temp_update_check
-            else "Will be Disabled",
+            "update_status": (
+                "Will be Enabled" if temp_update_check else "Will be Disabled"
+            ),
             "current_time": current_time,
             "info": f"Configure Portainer monitoring features. {status_info}",
         }
@@ -406,12 +405,12 @@ class TestSchemaFieldValidationPure:
                 field_types[key.schema] = value_type
 
         # Boolean fields
-        assert field_types["feature_switch_health_check"] == bool
-        assert field_types["feature_switch_restart_policy"] == bool
-        assert field_types["feature_switch_update_check"] == bool
+        assert field_types["feature_switch_health_check"] is bool
+        assert field_types["feature_switch_restart_policy"] is bool
+        assert field_types["feature_switch_update_check"] is bool
 
         # String field
-        assert field_types["update_check_time"] == str
+        assert field_types["update_check_time"] is str
 
     def test_schema_optional_fields(self):
         """Test that all fields are optional (have defaults)."""

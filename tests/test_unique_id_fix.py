@@ -98,7 +98,6 @@ def coordinator(mock_config_entry):
         }
     }
     return coordinator
-    return coordinator
 
 
 @pytest.fixture
@@ -124,9 +123,9 @@ class TestUniqueIdGeneration:
             unique_ids.append(sensor.unique_id)
 
         # Verify all unique IDs are actually unique
-        assert len(unique_ids) == len(set(unique_ids)), (
-            f"Duplicate unique IDs found: {unique_ids}"
-        )
+        assert len(unique_ids) == len(
+            set(unique_ids)
+        ), f"Duplicate unique IDs found: {unique_ids}"
 
         # Verify no unique ID is None or empty
         for unique_id in unique_ids:
