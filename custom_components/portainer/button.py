@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN, CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+from .const import CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK, DOMAIN
 from .coordinator import PortainerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ async def async_setup_entry(
 
     # Always create the button - availability will be controlled dynamically
     button = ForceUpdateCheckButton(coordinator, config_entry.entry_id)
-    async_add_entities([button])
+    await async_add_entities([button])
     _LOGGER.debug("Force Update Check button created")
 
 
