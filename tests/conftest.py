@@ -2,41 +2,69 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import Mock
 
 import pytest
 
 # Add the custom component to Python path
-# Adjust this path based on your repository structure
 custom_components_path = Path(__file__).parent.parent / "custom_components"
 sys.path.insert(0, str(custom_components_path))
 
+# Import the official Home Assistant test framework
+pytest_plugins = "pytest_homeassistant_custom_component"
 
-@pytest.fixture
-def mock_config_entry():
-    """Return a mock config entry for testing."""
-    mock_entry = Mock()
-    mock_entry.options = {
-        "feature_switch_update_check": True,
-        "update_check_hour": 12,
-    }
-    mock_entry.data = {"host": "localhost", "port": 9000}
-    return mock_entry
+# Import after path setup
+from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
 
-
-@pytest.fixture
-def mock_hass():
-    """Return a mock Home Assistant instance."""
-    mock = Mock()
-    mock.data = {}
-    return mock
+from custom_components.portainer.const import (  # noqa: E402
+    CONF_FEATURE_HEALTH_CHECK,
+    CONF_FEATURE_RESTART_POLICY,
+    CONF_FEATURE_UPDATE_CHECK,
+    CONF_UPDATE_CHECK_TIME,
+    DOMAIN,
+)
 
 
 @pytest.fixture
-def mock_portainer_api():
-    """Return a mock Portainer API instance."""
-    mock_api = Mock()
-    mock_api.host = "localhost"
-    mock_api.port = 9000
-    mock_api.username = "admin"
-    return mock_api
+def mock_config_entry_feature_enabled():
+    """Create a mock config entry with update check feature enabled."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Portainer",
+        data={"host": "localhost", "name": "Test Portainer"},
+        options={
+            CONF_FEATURE_HEALTH_CHECK: True,
+            CONF_FEATURE_RESTART_POLICY: True,
+            CONF_FEATURE_UPDATE_CHECK: True,
+            CONF_UPDATE_CHECK_TIME: "04:30",
+        },
+        entry_id="test_entry_enabled",
+    )
+
+
+@pytest.fixture
+def mock_config_entry_feature_disabled():
+    """Create a mock config entry with update check feature disabled."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Portainer",
+        data={"host": "localhost", "name": "Test Portainer"},
+        options={
+            CONF_FEATURE_HEALTH_CHECK: True,
+            CONF_FEATURE_RESTART_POLICY: True,
+            CONF_FEATURE_UPDATE_CHECK: False,
+            CONF_UPDATE_CHECK_TIME: "04:30",
+        },
+        entry_id="test_entry_disabled",
+    )
+
+
+@pytest.fixture
+def mock_config_entry_new():
+    """Create a mock config entry for new installation (no options set)."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Portainer",
+        data={"host": "localhost", "name": "Test Portainer"},
+        options={},
+        entry_id="test_entry_new",
+    )

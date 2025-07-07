@@ -23,14 +23,25 @@
   "options": {
     "step": {
       "init": {
-        "description": "Configure custom features and update check settings.",
+        "title": "Portainer Configuration",
+        "description": "Configure Portainer features and monitoring options. Changes take effect after saving.",
         "data": {
-          "feature_switch_health_check": "Enable Health Check",
-          "feature_switch_restart_policy": "Enable Restart Policy",
-          "feature_switch_update_check": "Enable Update Check (checks every 24 hours)",
-          "update_check_hour": "Update Check Time (hour 0-23)"
+          "feature_switch_health_check": "Health Check Monitoring",
+          "feature_switch_restart_policy": "Restart Policy Monitoring",
+          "feature_switch_update_check": "Container Update Check",
+          "update_check_time": "Update Check Time"
+        },
+        "data_description": {
+          "feature_switch_health_check": "Monitor container health status and create health check sensors",
+          "feature_switch_restart_policy": "Monitor container restart policies and create restart policy sensors",
+          "feature_switch_update_check": "Enable automatic daily container update checking",
+          "update_check_time": "Daily update check time in HH:MM format (e.g., 04:30, only used when update check is enabled)"
         }
       }
+    },
+    "error": {
+      "invalid_hour": "Invalid hour value. Must be between 0 and 23.",
+      "update_check_disabled": "Update check time is only used when update checking is enabled."
     }
   },
   "entity": {

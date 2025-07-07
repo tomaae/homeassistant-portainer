@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from logging import getLogger
 from typing import Any
 
@@ -18,11 +19,11 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
 from .api import PortainerAPI
-from .const import CONF_FEATURE_HEALTH_CHECK  # feature switch
 from .const import (
+    CONF_FEATURE_HEALTH_CHECK,  # feature switch
     CONF_FEATURE_RESTART_POLICY,
     CONF_FEATURE_UPDATE_CHECK,
-    CONF_UPDATE_CHECK_HOUR,
+    CONF_UPDATE_CHECK_TIME,
     DEFAULT_DEVICE_NAME,
     DEFAULT_FEATURE_HEALTH_CHECK,
     DEFAULT_FEATURE_RESTART_POLICY,
@@ -30,11 +31,35 @@ from .const import (
     DEFAULT_HOST,
     DEFAULT_SSL,
     DEFAULT_SSL_VERIFY,
-    DEFAULT_UPDATE_CHECK_HOUR,
+    DEFAULT_UPDATE_CHECK_TIME,
     DOMAIN,
 )
 
 _LOGGER = getLogger(__name__)
+
+
+def validate_time_string(value):
+    """Validate time string in HH:MM format."""
+    if not isinstance(value, str):
+        raise vol.Invalid("Time must be a string in HH:MM format")
+    
+    # Check format with regex - allow single digit minutes too
+    time_pattern = re.compile(r'^([01]?[0-9]|2[0-3]):([0-5]?[0-9])$')
+    match = time_pattern.match(value)
+    
+    if not match:
+        raise vol.Invalid("Time must be in HH:MM format (e.g., 04:30)")
+    
+    hours = int(match.group(1))
+    minutes = int(match.group(2))
+    
+    # Additional validation (redundant but safe)
+    if not (0 <= hours <= 23):
+        raise vol.Invalid("Hours must be between 0 and 23")
+    if not (0 <= minutes <= 59):
+        raise vol.Invalid("Minutes must be between 0 and 59")
+    
+    return value
 
 
 # ---------------------------
@@ -72,8 +97,10 @@ class PortainerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Check if instance with this name already exists
             if user_input[CONF_NAME] in configured_instances(self.hass):
                 errors["base"] = "name_exists"
+                # Return early if name already exists - no need to test connection
+                return self._show_config_form(user_input=user_input, errors=errors)
 
-            # Test connection
+            # Test connection only if name is unique
             api = await self.hass.async_add_executor_job(
                 PortainerAPI,
                 self.hass,
@@ -145,38 +172,163 @@ class PortainerOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Manage the options."""
         if user_input is not None:
+            # Check if this is a "toggle" request (update check status changed)
+            current_update_check = self.config_entry.options.get(
+                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+            )
+            new_update_check = user_input.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+            
+            # If update check status changed, re-show form with updated schema
+            if current_update_check != new_update_check:
+                # Preserve current input values for the reload
+                preserved_input = {
+                    CONF_FEATURE_HEALTH_CHECK: user_input.get(
+                        CONF_FEATURE_HEALTH_CHECK, 
+                        self.config_entry.options.get(CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK)
+                    ),
+                    CONF_FEATURE_RESTART_POLICY: user_input.get(
+                        CONF_FEATURE_RESTART_POLICY,
+                        self.config_entry.options.get(CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY)
+                    ),
+                    CONF_FEATURE_UPDATE_CHECK: new_update_check,
+                    CONF_UPDATE_CHECK_TIME: user_input.get(
+                        CONF_UPDATE_CHECK_TIME,
+                        self.config_entry.options.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME)
+                    ),
+                }
+                
+                # Generate schema with new update check status
+                schema = self._get_dynamic_options_schema(new_update_check, preserved_input)
+                
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=schema,
+                    description_placeholders=self._get_description_placeholders_with_temp(new_update_check)
+                )
+            
+            # Validate time format if update check is enabled
+            if user_input.get(CONF_FEATURE_UPDATE_CHECK, False):
+                time_value = user_input.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME)
+                if time_value:  # Only validate if time value is provided
+                    try:
+                        validate_time_string(time_value)
+                    except vol.Invalid as e:
+                        return self.async_show_form(
+                            step_id="init",
+                            data_schema=self._get_dynamic_options_schema(True, user_input),
+                            errors={"base": str(e)},
+                            description_placeholders=self._get_description_placeholders()
+                        )
+            
+            # If update check was disabled, preserve current time for later use
+            if not user_input.get(CONF_FEATURE_UPDATE_CHECK, False):
+                user_input[CONF_UPDATE_CHECK_TIME] = self.config_entry.options.get(
+                    CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME
+                )
+            
+            # Direct processing - no complex transformations needed
             return self.async_create_entry(title="", data=user_input)
 
         # Show options form
+        current_update_check = self.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
+        schema = self._get_dynamic_options_schema(current_update_check)
+        
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_FEATURE_HEALTH_CHECK,
-                        default=self.config_entry.options.get(
-                            CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK
-                        ),
-                    ): bool,
-                    vol.Optional(
-                        CONF_FEATURE_RESTART_POLICY,
-                        default=self.config_entry.options.get(
-                            CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
-                        ),
-                    ): bool,
-                    vol.Optional(
-                        CONF_FEATURE_UPDATE_CHECK,
-                        default=self.config_entry.options.get(
-                            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
-                        ),
-                    ): bool,
-                    vol.Optional(
-                        CONF_UPDATE_CHECK_HOUR,
-                        default=self.config_entry.options.get(
-                            CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
-                        ),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
-                }
-            ),
-            errors=None,
+            data_schema=schema,
+            description_placeholders=self._get_description_placeholders()
         )
+
+    def _get_dynamic_options_schema(self, update_check_enabled, input_values=None):
+        """Get the options schema with conditional time picker based on explicit status."""
+        if input_values is None:
+            input_values = {}
+            
+        # Base schema - always visible fields
+        options_schema = {
+            # Container Features
+            vol.Optional(
+                CONF_FEATURE_HEALTH_CHECK,
+                default=input_values.get(
+                    CONF_FEATURE_HEALTH_CHECK,
+                    self.config_entry.options.get(CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK)
+                ),
+                description="Enable health check monitoring for containers"
+            ): bool,
+            
+            vol.Optional(
+                CONF_FEATURE_RESTART_POLICY,
+                default=input_values.get(
+                    CONF_FEATURE_RESTART_POLICY,
+                    self.config_entry.options.get(CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY)
+                ),
+                description="Enable restart policy monitoring for containers"
+            ): bool,
+            
+            # Update Check Feature
+            vol.Optional(
+                CONF_FEATURE_UPDATE_CHECK,
+                default=update_check_enabled,
+                description="Enable automatic container update checking"
+            ): bool,
+        }
+        
+        # Conditionally add time field ONLY if update check is enabled
+        if update_check_enabled:
+            options_schema[vol.Optional(
+                CONF_UPDATE_CHECK_TIME,
+                default=input_values.get(
+                    CONF_UPDATE_CHECK_TIME,
+                    self.config_entry.options.get(CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME)
+                ),
+                description="Daily update check time in HH:MM format"
+            )] = str
+        
+        return vol.Schema(options_schema)
+
+    def _get_options_schema(self):
+        """Get the options schema with conditional time picker."""
+        # This method is kept for backwards compatibility but delegates to the dynamic version
+        current_update_check = self.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
+        return self._get_dynamic_options_schema(current_update_check)
+
+    def _get_description_placeholders(self):
+        """Get description placeholders for the form."""
+        current_update_check = self.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
+        current_time = self.config_entry.options.get(
+            CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME
+        )
+        
+        if current_update_check:
+            status_info = f"Update checking is currently enabled and runs daily at {current_time}"
+        else:
+            status_info = "Update checking is currently disabled"
+        
+        return {
+            "update_status": "Enabled" if current_update_check else "Disabled",
+            "current_time": current_time,
+            "info": f"Configure Portainer monitoring features. {status_info}"
+        }
+
+    def _get_description_placeholders_with_temp(self, temp_update_check):
+        """Get description placeholders with temporary update check status."""
+        current_time = self.config_entry.options.get(
+            CONF_UPDATE_CHECK_TIME, DEFAULT_UPDATE_CHECK_TIME
+        )
+        
+        if temp_update_check:
+            status_info = f"Update checking will be enabled. Set the time when checks should run daily."
+        else:
+            status_info = "Update checking will be disabled. Time setting is not needed."
+        
+        return {
+            "update_status": "Will be Enabled" if temp_update_check else "Will be Disabled",
+            "current_time": current_time,
+            "info": f"Configure Portainer monitoring features. {status_info}"
+        }
