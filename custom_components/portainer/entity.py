@@ -231,20 +231,46 @@ class PortainerEntity(CoordinatorEntity[PortainerCoordinator], Entity):
         # Always ensure we have a valid unique_id
         if self._uid:
             self._data = coordinator.data[self.description.data_path][self._uid]
-            # build _attr_unique_id (with _uid)
-            slug = ""
-            for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
-                if key in self._data:
-                    slug = slug + " " + self._data[key]
-            slug = format_camel_case(slug).lower()
-            self._attr_unique_id = (
-                f"{self._inst.lower()}-{self.description.key}-{slugify(slug)}"
-            )
-            _LOGGER.debug(
-                "Created unique_id with uid: %s for %s",
-                self._attr_unique_id,
-                self.description.key,
-            )
+            
+            # For endpoints, use endpoint-specific attributes for unique ID
+            if self.description.data_path == "endpoints":
+                # Use endpoint ID, name, and config entry ID for uniqueness
+                endpoint_id = self._data.get("Id", self._uid)
+                endpoint_name = self._data.get("Name", "unknown")
+                config_entry_id = self.get_config_entry_id()
+                
+                # Create a safe slug without using slugify to preserve our underscore separators
+                # Replace any problematic characters but keep underscores
+                safe_endpoint_id = str(endpoint_id).replace(" ", "-").replace("/", "-")
+                safe_endpoint_name = str(endpoint_name).replace(" ", "-").replace("/", "-").lower()
+                safe_config_id = str(config_entry_id).replace(" ", "-").replace("/", "-")
+                
+                slug = f"{safe_endpoint_id}_{safe_endpoint_name}_{safe_config_id}"
+                self._attr_unique_id = (
+                    f"{self._inst.lower().replace(' ', '-')}-{self.description.key}-{slug}"
+                )
+                _LOGGER.debug(
+                    "Created endpoint unique_id: %s for endpoint %s (ID: %s, config_entry: %s)",
+                    self._attr_unique_id,
+                    endpoint_name,
+                    endpoint_id,
+                    config_entry_id,
+                )
+            else:
+                # For containers and other entities, use the original logic
+                slug = ""
+                for key in DEVICE_ATTRIBUTES_CONTAINERS_UNIQUE:
+                    if key in self._data:
+                        slug = slug + " " + self._data[key]
+                slug = format_camel_case(slug).lower()
+                self._attr_unique_id = (
+                    f"{self._inst.lower()}-{self.description.key}-{slugify(slug)}"
+                )
+                _LOGGER.debug(
+                    "Created unique_id with uid: %s for %s",
+                    self._attr_unique_id,
+                    self.description.key,
+                )
         else:
             # build _attr_unique_id (no _uid)
             config_entry_id = self.get_config_entry_id()

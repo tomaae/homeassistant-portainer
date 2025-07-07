@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
 from .coordinator import PortainerCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -23,8 +23,10 @@ async def async_setup_entry(
     """Set up the button platform."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]["coordinator"]
 
+    # Always create the button - availability will be controlled dynamically
     button = ForceUpdateCheckButton(coordinator, config_entry.entry_id)
     async_add_entities([button])
+    _LOGGER.debug("Force Update Check button created")
 
 
 class ForceUpdateCheckButton(ButtonEntity):
@@ -39,6 +41,18 @@ class ForceUpdateCheckButton(ButtonEntity):
         self._attr_name = "Force Update Check"
         self._attr_icon = "mdi:update"
         self._attr_unique_id = f"{entry_id}_force_update_check_final"
+        
+        # Set default enabled state based on feature
+        # Use DEFAULT_FEATURE_UPDATE_CHECK as fallback if options not set yet
+        feature_enabled = coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        # Ensure we only accept actual boolean True, not truthy values like "true" string
+        feature_enabled = feature_enabled is True
+        self._attr_entity_registry_enabled_default = feature_enabled
+        
+        _LOGGER.debug(
+            "Force Update Check button initialized: feature_enabled=%s, entity_enabled_default=%s",
+            feature_enabled, self._attr_entity_registry_enabled_default
+        )
 
     @property
     def device_info(self):
@@ -50,6 +64,31 @@ class ForceUpdateCheckButton(ButtonEntity):
             "name": f"{self.coordinator.name} System",
             "manufacturer": "Portainer",
         }
+
+    @property
+    def available(self) -> bool:
+        """Return whether the entity is available."""
+        # Button is available when feature is enabled AND coordinator is connected
+        feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        # Ensure we only accept actual boolean True, not truthy values
+        feature_enabled = feature_enabled is True
+        coordinator_connected = self.coordinator.connected()
+        
+        _LOGGER.debug(
+            "Button availability check: feature_enabled=%s, coordinator_connected=%s", 
+            feature_enabled, coordinator_connected
+        )
+        
+        return feature_enabled and coordinator_connected
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return if the entity should be enabled by default."""
+        feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        # Ensure we only accept actual boolean True, not truthy values
+        feature_enabled = feature_enabled is True
+        _LOGGER.debug("Button entity_registry_enabled_default called: %s", feature_enabled)
+        return feature_enabled
 
     async def async_press(self) -> None:
         """Handle the button press."""

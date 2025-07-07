@@ -14,7 +14,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 
-from custom_components.portainer.const import DOMAIN
+from custom_components.portainer.const import DOMAIN, CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
 
 from .coordinator import PortainerCoordinator
 from .entity import PortainerEntity, async_create_sensors
@@ -53,6 +53,7 @@ async def async_setup_entry(
             platform.async_register_entity_service(service[0], service[1], service[2])
 
     entities = await async_create_sensors(coordinator, descriptions, dispatcher)
+    _LOGGER.info("Initial sensor setup: Created %d entities from async_create_sensors", len(entities))
 
     # Additional safety check: remove any duplicates by unique_id within the batch
     unique_entities = []
@@ -62,12 +63,20 @@ async def async_setup_entry(
             if entity.unique_id not in seen_unique_ids:
                 unique_entities.append(entity)
                 seen_unique_ids.add(entity.unique_id)
+                _LOGGER.debug("Added entity with unique_id: %s", entity.unique_id)
             else:
                 _LOGGER.warning(
-                    "Removing duplicate entity with unique_id: %s", entity.unique_id
+                    "Removing duplicate entity with unique_id: %s (name: %s, type: %s)", 
+                    entity.unique_id,
+                    getattr(entity, 'name', 'unknown'),
+                    type(entity).__name__
                 )
         else:
-            _LOGGER.warning("Entity without unique_id found during setup, skipping")
+            _LOGGER.warning(
+                "Entity without unique_id found during setup, skipping (type: %s, name: %s)", 
+                type(entity).__name__,
+                getattr(entity, 'name', 'unknown')
+            )
 
     async_add_entities_callback(unique_entities, update_before_add=True)
 
@@ -109,6 +118,7 @@ async def async_setup_entry(
 
         new_entities = []
         entities = await async_create_sensors(coordinator, descriptions, dispatcher)
+        _LOGGER.debug("Update controller: async_create_sensors returned %d entities", len(entities))
         for entity in entities:
             try:
                 unique_id = entity.unique_id
@@ -127,7 +137,12 @@ async def async_setup_entry(
                 )
                 continue
             if unique_id in existing_unique_ids:
-                _LOGGER.debug("Skipping existing entity: %s", unique_id)
+                _LOGGER.debug(
+                    "Skipping existing entity: %s (name: %s, type: %s)", 
+                    unique_id,
+                    entity_name,
+                    type(entity).__name__
+                )
                 continue
 
             _LOGGER.debug("Found new entity to add: %s", unique_id)
@@ -181,6 +196,25 @@ class PortainerSensor(PortainerEntity, SensorEntity):
                     return self._data[uom]
 
             return self.description.native_unit_of_measurement
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return if the entity should be enabled by default."""
+        # Check if this is an UpdateCheckSensor - if so, use its specific logic
+        if isinstance(self, UpdateCheckSensor):
+            # Use the attribute if set, otherwise calculate from feature state
+            if hasattr(self, '_attr_entity_registry_enabled_default'):
+                return self._attr_entity_registry_enabled_default
+            feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+            # Ensure we only accept actual boolean True, not truthy values
+            feature_enabled = feature_enabled is True
+            from logging import getLogger
+            logger = getLogger(__name__)
+            logger.debug("UpdateCheckSensor entity_registry_enabled_default property called: %s", feature_enabled)
+            return feature_enabled
+        
+        # For other sensors, use the default behavior (enabled by default)
+        return True
 
 
 # ---------------------------
@@ -306,12 +340,32 @@ class UpdateCheckSensor(PortainerSensor):
         super().__init__(coordinator, description, uid)
         self._attr_icon = "mdi:clock-outline"
         self.manufacturer = "Portainer"
+        
+        # Set default enabled state based on feature
+        # Use DEFAULT_FEATURE_UPDATE_CHECK as fallback if options not set yet
+        feature_enabled = coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        # Ensure we only accept actual boolean True, not truthy values like "true" string
+        feature_enabled = feature_enabled is True
+        self._attr_entity_registry_enabled_default = feature_enabled
+        
+        # Import logger for this class if not already available
+        from logging import getLogger
+        logger = getLogger(__name__)
+        logger.debug(
+            "Update Check Sensor initialized: feature_enabled=%s, entity_enabled_default=%s",
+            feature_enabled, self._attr_entity_registry_enabled_default
+        )
 
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Always available if coordinator is connected, even if system data is missing
-        return self.coordinator.connected()
+        # Sensor is available when feature is enabled AND coordinator is connected
+        feature_enabled = self.coordinator.config_entry.options.get(CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK)
+        # Ensure we only accept actual boolean True, not truthy values
+        feature_enabled = feature_enabled is True
+        coordinator_connected = self.coordinator.connected()
+        
+        return feature_enabled and coordinator_connected
 
     def _parse_datetime(self, value: str) -> datetime | str:
         """Parse ISO string to timezone-aware datetime object."""
