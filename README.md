@@ -190,7 +190,7 @@ Create or update `.vscode/settings.json`:
 4. Run `Test: Refresh Tests` to discover tests
 5. Open the Test Explorer (`Ctrl+Shift+T` / `Cmd+Shift+T`)
 
-You should now see all 55 tests organized by file and class in the Test Explorer.
+You should now see all 110 tests organized by file and class in the Test Explorer.
 
 ##### 4. Running Tests in VS Code
 
@@ -203,8 +203,13 @@ You should now see all 55 tests organized by file and class in the Test Explorer
 
 ```
 tests/
-├── test_tag_parsing.py      # Docker image tag parsing tests (37 tests)
-└── test_update_checks.py    # Container update logic tests (18 tests)
+├── test_availability_fix.py      # Entity availability management (12 tests)
+├── test_dynamic_ui_reactive.py   # Dynamic UI behavior (4 tests)
+├── test_pure_logic.py            # Core config flow logic (24 tests)
+├── test_tag_parsing.py           # Docker image parsing (37 tests)
+├── test_ui_field_visibility.py   # UI field visibility (5 tests)
+├── test_unique_id_fix.py         # Unique ID generation (8 tests)
+└── test_update_checks.py         # Update check logic (20 tests)
 ```
 
 ### Development Workflow
@@ -258,9 +263,14 @@ Add breakpoints in VS Code and use the debug configuration for pytest:
 
 ### Current Test Coverage
 
-- **Total Tests**: 55
-- **Tag Parsing Tests**: 37 (Docker image name parsing with various formats)
-- **Update Check Tests**: 18 (Container update logic and caching)
+- **Total Tests**: 110
+- **Entity Availability Tests**: 12 (Entity enabled/disabled states)
+- **Dynamic UI Tests**: 4 (Reactive form behavior)
+- **Pure Logic Tests**: 24 (Config flow logic and validation)
+- **Tag Parsing Tests**: 37 (Docker image name parsing)
+- **UI Field Visibility Tests**: 5 (Conditional field display)
+- **Unique ID Tests**: 8 (Entity unique ID generation)
+- **Update Check Tests**: 20 (Container update logic and caching)
 - **Success Rate**: 100% ✅
 
 ## Translation

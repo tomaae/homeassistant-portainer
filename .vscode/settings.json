@@ -5,20 +5,39 @@
   "editor.codeActionsOnSave": {
     "source.organizeImports": "explicit"
   },
-  "python.defaultInterpreterPath": "./.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.pythonPath": "${workspaceFolder}/.venv/bin/python",
   "python.testing.pytestEnabled": true,
   "python.testing.unittestEnabled": false,
-  "python.testing.pytestArgs": ["tests"],
+  "python.testing.pytestArgs": [
+    "${workspaceFolder}/tests",
+    "-v",
+    "--tb=short",
+    "--no-header"
+  ],
+  "python.testing.cwd": "${workspaceFolder}",
   "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  "python.testing.promptToConfigure": false,
   "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/custom_components",
+    "${workspaceFolder}"
+  ],
+  "python.envFile": "${workspaceFolder}/.env",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.indexing": true,
   "[python]": {
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
       "source.organizeImports": "explicit"
     }
   },
+  "files.associations": {
+    "*.py": "python"
+  },
   "sonarlint.connectedMode.project": {
-    "connectionId": "nrcb5b1fkky3oa6ljluaiqhk3oa6ljluaiqhk3pzy91kg0hw7vibanuvffftnbbig6wb14v3kr83436wwa3",
+    "connectionId": "nrcb5b1fkky3oa6ljluaiqhk3oa6ljluaiqhk3oa6ljluaiqhk3pzy91kg0hw7vibanuvffftnbbig6wb14v3kr83436wwa3",
     "projectKey": "helgeerbe_homeassistant-portainer"
   }
 }

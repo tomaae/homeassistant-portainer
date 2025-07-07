@@ -1,68 +1,74 @@
 """Tests for Portainer coordinator update check functionality."""
 
-import sys
 from datetime import datetime, timedelta
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from homeassistant.core import HomeAssistant
 
-# Add custom_components to Python path for testing
-# Adjust this path based on your repository structure
-custom_components_path = Path(__file__).parent.parent / "custom_components"
-sys.path.insert(0, str(custom_components_path))
+from custom_components.portainer.const import DOMAIN
+from custom_components.portainer.coordinator import PortainerCoordinator
 
-# Import the coordinator after adding to path
-from portainer.coordinator import PortainerCoordinator  # noqa: E402
+
+@pytest.fixture
+def mock_config_entry():
+    """Create a mock config entry for testing."""
+    mock_entry = MagicMock()
+    mock_entry.domain = DOMAIN
+    mock_entry.data = {
+        "host": "localhost",
+        "api_key": "test_key",
+        "name": "Test Portainer",
+        "ssl": False,
+        "verify_ssl": True,
+    }
+    mock_entry.options = {
+        "feature_switch_update_check": True,
+        "update_check_hour": 10,
+    }
+    mock_entry.entry_id = "test_entry"
+    return mock_entry
+
+
+@pytest.fixture
+def mock_api():
+    """Create a mock API instance."""
+    api = MagicMock()
+    api.check_for_image_update = AsyncMock()
+    api.query = AsyncMock()
+    return api
+
+
+@pytest.fixture
+def coordinator_with_mock(hass: HomeAssistant, mock_config_entry, mock_api):
+    """Create a coordinator instance with mocked dependencies."""
+    # Create a minimal coordinator for testing
+    coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
+
+    # Initialize required attributes
+    coordinator.hass = hass
+    coordinator.config_entry = mock_config_entry
+    coordinator.api = mock_api
+    coordinator.features = {
+        "feature_switch_update_check": True,
+    }
+    coordinator.last_update_check = None
+    coordinator.cached_update_results = {}
+    coordinator.cached_registry_responses = {}
+    coordinator.force_update_requested = False
+
+    # Add property for update_check_hour that reads from config
+    @property
+    def update_check_hour(self):
+        return self.config_entry.options.get("update_check_hour", 10)
+
+    coordinator.__class__.update_check_hour = update_check_hour
+
+    return coordinator
 
 
 class TestUpdateCheckLogic:
     """Test class for container update check functionality."""
-
-    @pytest.fixture
-    def mock_config_entry(self):
-        """Create a mock config entry."""
-        mock_entry = MagicMock()
-        mock_entry.data = {
-            "host": "localhost",
-            "api_key": "test_key",
-            "name": "Test Portainer",
-            "ssl": False,
-            "verify_ssl": True,
-        }
-        mock_entry.options = {
-            "feature_switch_update_check": True,
-            "update_check_hour": 10,
-        }
-        mock_entry.entry_id = "test_entry"
-        return mock_entry
-
-    @pytest.fixture
-    def coordinator_with_mock(self, mock_config_entry):
-        """Create a coordinator instance with mocked dependencies."""
-        # Create a minimal coordinator for testing
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        # Initialize required attributes
-        coordinator.features = {
-            "feature_switch_update_check": True,
-        }
-        coordinator.config_entry = mock_config_entry
-        coordinator.hass = MagicMock()
-        coordinator.api = MagicMock()
-        coordinator.last_update_check = None
-        coordinator.cached_update_results = {}
-        coordinator.cached_registry_responses = {}
-        coordinator.force_update_requested = False
-
-        # Add property for update_check_hour that reads from config
-        @property
-        def update_check_hour(self):
-            return self.config_entry.options.get("update_check_hour", 10)
-
-        coordinator.__class__.update_check_hour = update_check_hour
-
-        return coordinator
 
     def test_should_check_updates_feature_disabled(self, coordinator_with_mock):
         """Test should_check_updates when feature is disabled."""
@@ -162,7 +168,7 @@ class TestUpdateCheckLogic:
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
         assert result == cached_result
 
-    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_response_dict(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -181,7 +187,7 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_response_list(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -200,7 +206,7 @@ class TestUpdateCheckLogic:
         # The actual implementation returns boolean, not the API response
         assert isinstance(result, bool)
 
-    @patch("portainer.coordinator.PortainerCoordinator.should_check_updates")
+    @patch("custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates")
     def test_check_image_updates_api_error(
         self, mock_should_check, coordinator_with_mock
     ):
@@ -267,3 +273,33 @@ class TestUpdateCheckLogic:
         # Should be tomorrow's date
         tomorrow = datetime.now() + timedelta(days=1)
         assert result.date() == tomorrow.date()
+
+
+class TestUpdateCheckIntegration:
+    """Integration tests for update check functionality with Home Assistant."""
+
+    def test_coordinator_initialization(self, hass: HomeAssistant, mock_config_entry):
+        """Test that coordinator initializes properly with Home Assistant."""
+        # Test that the coordinator can be properly initialized with HA
+        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
+        coordinator.hass = hass
+        coordinator.config_entry = mock_config_entry
+        
+        # Basic initialization checks
+        assert coordinator.hass == hass
+        assert coordinator.config_entry == mock_config_entry
+
+    def test_update_check_with_hass_context(self, hass: HomeAssistant, coordinator_with_mock):
+        """Test update check functionality within Home Assistant context."""
+        # Ensure the coordinator is properly integrated with Home Assistant
+        coordinator_with_mock.hass = hass
+        
+        # Test that update checks work within HA context
+        container_data = {
+            "Id": "test_container",
+            "Name": "/test",
+            "Image": "nginx:latest",
+        }
+        
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert isinstance(result, bool)

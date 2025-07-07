@@ -1,17 +1,14 @@
 """Tests for Portainer coordinator Docker image tag parsing functionality."""
 
-import sys
-from pathlib import Path
-
 import pytest
 
-# Add custom_components to Python path for testing
-# Adjust this path based on your repository structure
-custom_components_path = Path(__file__).parent.parent / "custom_components"
-sys.path.insert(0, str(custom_components_path))
+from custom_components.portainer.coordinator import PortainerCoordinator
 
-# Import the coordinator after adding to path
-from portainer.coordinator import PortainerCoordinator  # noqa: E402
+
+@pytest.fixture
+def coordinator():
+    """Create a basic coordinator instance for testing static methods."""
+    return PortainerCoordinator.__new__(PortainerCoordinator)
 
 
 class TestDockerImageTagParsing:
@@ -48,12 +45,13 @@ class TestDockerImageTagParsing:
             ("containrrr/watchtower:latest", "containrrr/watchtower", "latest"),
             # Multi-level namespaces
             ("registry.com/namespace/repo:tag", "registry.com/namespace/repo", "tag"),
+            # Complex registry cases
             (
                 "gcr.io/google-containers/pause:3.1",
                 "gcr.io/google-containers/pause",
                 "3.1",
             ),
-            # Digest cases (digest should be removed)
+            # Digest cases (SHA256 should be removed)
             ("nginx@sha256:abc123def456", "nginx", "latest"),
             ("nginx:latest@sha256:abc123def456", "nginx", "latest"),
             (
@@ -81,134 +79,98 @@ class TestDockerImageTagParsing:
                 "quay.io:8080/prometheus/node-exporter",
                 "v1.3.1",
             ),
-            # Tags with special characters
+            # Complex version tags
             ("myapp:2.1.0-rc.1", "myapp", "2.1.0-rc.1"),
             ("myapp:v2.1.0_alpha", "myapp", "v2.1.0_alpha"),
             ("myapp:snapshot-20231201", "myapp", "snapshot-20231201"),
         ],
     )
-    def test_parse_image_name(self, image_name, expected_repo, expected_tag):
-        """Test image name parsing with various formats."""
-        # Create a minimal coordinator instance for testing static methods
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
+    def test_parse_image_name(
+        self, coordinator, image_name, expected_repo, expected_tag
+    ):
+        """Test parsing various Docker image name formats."""
         repo, tag = coordinator._parse_image_name(image_name)
-        assert (
-            repo == expected_repo
-        ), f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
-        assert (
-            tag == expected_tag
-        ), f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
+        assert repo == expected_repo
+        assert tag == expected_tag
 
-    def test_parse_image_name_with_none_input(self):
-        """Test that None input is handled gracefully."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
+    def test_parse_image_name_with_none_input(self, coordinator):
+        """Test parsing with None input."""
         repo, tag = coordinator._parse_image_name(None)
         assert repo == "unknown"
         assert tag == "latest"
 
-    def test_parse_image_name_registry_port_edge_cases(self):
-        """Test edge cases with registry ports."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        # Test case where port could be confused with tag
+    def test_parse_image_name_registry_port_edge_cases(self, coordinator):
+        """Test edge cases for registry port parsing."""
+        # Test various combinations of registries with ports
         test_cases = [
-            # Without slash, port is treated as tag
-            ("registry.com:5000", "registry.com", "5000"),
-            ("registry.com:443/app", "registry.com:443/app", "latest"),
-            ("localhost:8080/myapp:v1.0", "localhost:8080/myapp", "v1.0"),
-        ]
-
-        for image_name, expected_repo, expected_tag in test_cases:
-            repo, tag = coordinator._parse_image_name(image_name)
-            assert (
-                repo == expected_repo
-            ), f"Expected repo '{expected_repo}', got '{repo}' for '{image_name}'"
-            assert (
-                tag == expected_tag
-            ), f"Expected tag '{expected_tag}', got '{tag}' for '{image_name}'"
-
-    def test_parse_image_name_digest_removal(self):
-        """Test that SHA digests are properly removed."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        # Test various digest formats
-        test_cases = [
+            ("localhost:5000/app", "localhost:5000/app", "latest"),
+            ("192.168.1.100:8080/service:v1", "192.168.1.100:8080/service", "v1"),
             (
-                "nginx@sha256:1234567890abcdef",
-                "nginx",
+                "registry.local:443/namespace/app:latest",
+                "registry.local:443/namespace/app",
                 "latest",
             ),
-            (
-                "registry.com/app:v1.0@sha256:abcdef1234567890",
-                "registry.com/app",
-                "v1.0",
-            ),
         ]
 
         for image_name, expected_repo, expected_tag in test_cases:
             repo, tag = coordinator._parse_image_name(image_name)
-            assert repo == expected_repo
-            assert tag == expected_tag
+            assert repo == expected_repo, f"Failed for {image_name}"
+            assert tag == expected_tag, f"Failed for {image_name}"
 
-    def test_parse_image_name_numeric_tags(self):
-        """Test handling of numeric tags vs ports."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        # These should be treated as tags, not ports
+    def test_parse_image_name_digest_removal(self, coordinator):
+        """Test that SHA256 digests are properly removed from image names."""
         test_cases = [
-            ("myapp:123", "myapp", "123"),
-            ("registry.com/myapp:456", "registry.com/myapp", "456"),
-            # This case: 789 could be a port, so treated as no tag
-            ("localhost:5000/app:789", "localhost:5000/app:789", "latest"),
+            ("nginx@sha256:abc123", "nginx", "latest"),
+            ("nginx:1.21@sha256:def456", "nginx", "1.21"),
+            ("registry.com/app:v1.0@sha256:789xyz", "registry.com/app", "v1.0"),
         ]
 
         for image_name, expected_repo, expected_tag in test_cases:
             repo, tag = coordinator._parse_image_name(image_name)
-            assert repo == expected_repo
-            assert tag == expected_tag
+            assert repo == expected_repo, f"Failed for {image_name}"
+            assert tag == expected_tag, f"Failed for {image_name}"
+
+    def test_parse_image_name_numeric_tags(self, coordinator):
+        """Test parsing of purely numeric tags."""
+        test_cases = [
+            ("nginx:123", "nginx", "123"),
+            ("app:2023", "app", "2023"),
+            ("service:20240101", "service", "20240101"),
+        ]
+
+        for image_name, expected_repo, expected_tag in test_cases:
+            repo, tag = coordinator._parse_image_name(image_name)
+            assert repo == expected_repo, f"Failed for {image_name}"
+            assert tag == expected_tag, f"Failed for {image_name}"
 
 
 class TestImageIdNormalization:
-    """Test class for image ID normalization functionality."""
+    """Test class for Docker image ID normalization functionality."""
 
-    def test_normalize_image_id_with_sha256_prefix(self):
-        """Test normalization with sha256: prefix."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
+    def test_normalize_image_id_with_sha256_prefix(self, coordinator):
+        """Test normalization of image IDs with sha256: prefix."""
+        image_id = "sha256:abc123def456789"
+        result = coordinator._normalize_image_id(image_id)
+        assert result == "abc123def456789"
 
-        image_id = "sha256:1234567890abcdef"
-        normalized = coordinator._normalize_image_id(image_id)
-        assert normalized == "1234567890abcdef"
+    def test_normalize_image_id_without_prefix(self, coordinator):
+        """Test normalization of image IDs without prefix."""
+        image_id = "abc123def456789"
+        result = coordinator._normalize_image_id(image_id)
+        assert result == "abc123def456789"
 
-    def test_normalize_image_id_without_prefix(self):
-        """Test normalization without sha256: prefix."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
+    def test_normalize_image_id_empty_string(self, coordinator):
+        """Test normalization of empty string."""
+        result = coordinator._normalize_image_id("")
+        assert result == ""
 
-        image_id = "1234567890abcdef"
-        normalized = coordinator._normalize_image_id(image_id)
-        assert normalized == "1234567890abcdef"
-
-    def test_normalize_image_id_empty_string(self):
-        """Test normalization with empty string."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        image_id = ""
-        normalized = coordinator._normalize_image_id(image_id)
-        assert normalized == ""
-
-    def test_normalize_image_id_short_id(self):
-        """Test normalization with short image ID."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
+    def test_normalize_image_id_short_id(self, coordinator):
+        """Test normalization of short image IDs."""
         image_id = "sha256:abc123"
-        normalized = coordinator._normalize_image_id(image_id)
-        assert normalized == "abc123"
+        result = coordinator._normalize_image_id(image_id)
+        assert result == "abc123"
 
-    def test_normalize_image_id_only_sha256_prefix(self):
-        """Test normalization with only sha256: prefix."""
-        coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
-
-        image_id = "sha256:"
-        normalized = coordinator._normalize_image_id(image_id)
-        assert normalized == ""
+    def test_normalize_image_id_only_sha256_prefix(self, coordinator):
+        """Test normalization when input is only the sha256 prefix."""
+        result = coordinator._normalize_image_id("sha256:")
+        assert result == ""

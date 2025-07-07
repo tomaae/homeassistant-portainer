@@ -9,6 +9,20 @@
       "group": "test",
       "isBackground": false,
       "problemMatcher": ["$pytest"]
+    },
+    {
+      "label": "Discover Tests",
+      "type": "shell",
+      "command": "python",
+      "args": ["discover_tests.py"],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
     }
   ]
 }

@@ -1,5 +1,7 @@
 """Test fixtures and configuration for Portainer custom component tests."""
 
+import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -8,6 +10,9 @@ import pytest
 # Add the custom component to Python path
 custom_components_path = Path(__file__).parent.parent / "custom_components"
 sys.path.insert(0, str(custom_components_path))
+
+# Set environment variables for testing
+os.environ["TESTING"] = "true"
 
 # Import the official Home Assistant test framework
 pytest_plugins = "pytest_homeassistant_custom_component"
@@ -22,6 +27,40 @@ from custom_components.portainer.const import (  # noqa: E402
     CONF_UPDATE_CHECK_TIME,
     DOMAIN,
 )
+
+
+# Global pytest configuration for VS Code test discovery
+def pytest_configure(config):
+    """Configure pytest for VS Code test discovery."""
+    # Add custom markers
+    config.addinivalue_line("markers", "asyncio: mark test as async")
+    config.addinivalue_line("markers", "integration: mark test as integration test")
+    config.addinivalue_line("markers", "unit: mark test as unit test")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Modify test items for better organization in VS Code."""
+    for item in items:
+        # Add markers based on file paths and test names
+        if "integration" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+        elif "test_homeassistant" in str(item.fspath):
+            item.add_marker(pytest.mark.integration)
+        else:
+            item.add_marker(pytest.mark.unit)
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create an instance of the default event loop for the test session."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    yield loop
+    if not loop.is_closed():
+        loop.close()
 
 
 @pytest.fixture
