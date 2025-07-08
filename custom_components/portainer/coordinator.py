@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from datetime import datetime, timedelta
-from logging import getLogger
 
+import requests
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_API_KEY,
@@ -33,8 +34,9 @@ from .const import (
     DOMAIN,
     SCAN_INTERVAL,
 )
+from .docker_registry import DockerRegistryError
 
-_LOGGER = getLogger(__name__)
+_LOGGER = logging.getLogger(__name__)
 
 
 # ---------------------------
@@ -76,9 +78,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.last_update_check: datetime | None = None
         self.force_update_requested: bool = False  # Flag for force update
         self.cached_update_results: dict[str, bool] = {}
-        self.cached_registry_responses: dict[str, dict] = (
-            {}
-        )  # Cache registry responses per image name
+        self.cached_registry_responses: dict[
+            str, dict
+        ] = {}  # Cache registry responses per image name
 
         # init raw data
         self.raw_data: dict[str, dict] = {
@@ -223,6 +225,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         """Get containers from all endpoints."""
         self.raw_data["containers"] = {}
+        registry_checked = False  # Flag: Wurde mindestens ein Registry-Request gemacht?
         for eid in self.raw_data["endpoints"]:
             if self.raw_data["endpoints"][eid]["Status"] == 1:
                 self.raw_data["containers"][eid] = self._parse_containers_for_endpoint(
@@ -230,10 +233,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 )
                 self._set_container_environment_and_config(eid)
                 if self._custom_features_enabled():
-                    self._handle_custom_features_for_endpoint(eid)
+                    # Wir übergeben das Flag an _handle_custom_features_for_endpoint
+                    registry_checked = self._handle_custom_features_for_endpoint(
+                        eid, registry_checked
+                    )
         self.raw_data["containers"] = self._flatten_containers_dict(
             self.raw_data["containers"]
         )
+        # Setze last_update_check nur, wenn wirklich ein Registry-Request gemacht wurde
+        if registry_checked:
+            self.last_update_check = datetime.now()
 
     def _parse_containers_for_endpoint(self, eid: str) -> dict:
         """Parse containers for a single endpoint."""
@@ -295,8 +304,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
             or self.features[CONF_FEATURE_UPDATE_CHECK]
         )
 
-    def _handle_custom_features_for_endpoint(self, eid: str) -> None:
-        """Handle custom features for all containers in an endpoint."""
+    def _handle_custom_features_for_endpoint(
+        self, eid: str, registry_checked: bool = False
+    ) -> bool:
+        """Handle custom features for all containers in an endpoint. Gibt zurück, ob ein Registry-Request gemacht wurde."""
         for cid in self.raw_data["containers"][eid]:
             container = self.raw_data["containers"][eid][cid]
             container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = parse_api(
@@ -332,17 +343,19 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                 ]["Restart_Policy"]
             if self.features[CONF_FEATURE_UPDATE_CHECK]:
-                update_available = self.check_image_updates(eid, container)
+                # Wir prüfen, ob check_image_updates einen Registry-Request gemacht hat
+                result = self.check_image_updates(
+                    eid, container, return_registry_used=True
+                )
+                if isinstance(result, tuple):
+                    update_available, registry_used = result
+                else:
+                    update_available, registry_used = result, False
                 container[CUSTOM_ATTRIBUTE_ARRAY]["Update_Available"] = update_available
+                if registry_used:
+                    registry_checked = True
             del container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
-
-    def _flatten_containers_dict(self, containers: dict) -> dict:
-        """Flatten the containers dictionary so each environment has its own set of containers."""
-        return {
-            f"{eid}{cid}": value
-            for eid, t_dict in containers.items()
-            for cid, value in t_dict.items()
-        }
+        return registry_checked
 
     # ---------------------------
     #   should_check_updates
@@ -438,104 +451,86 @@ class PortainerCoordinator(DataUpdateCoordinator):
             return image_id[7:]  # Remove "sha256:" prefix
         return image_id
 
-    def _parse_image_name(self, image_name: str) -> tuple[str, str]:
-        """Parse a Docker image name into repository and tag.
-
-        Handles various formats:
-        - nginx -> (nginx, latest)
-        - nginx:1.21 -> (nginx, 1.21)
-        - registry.com/nginx:latest -> (registry.com/nginx, latest)
-        - nginx@sha256:abc123 -> (nginx, latest) [digest removed]
-        - nginx:latest@sha256:abc123 -> (nginx, latest) [digest removed]
-        - localhost:5000/nginx:latest -> (localhost:5000/nginx, latest)
-        - localhost:5000/nginx -> (localhost:5000/nginx, latest)
-        """
+    @staticmethod
+    def _remove_digest(image_name: str) -> str:
+        """Remove the digest (e.g., @sha256:...) from the image name if present."""
         if not image_name:
-            return "unknown", "latest"
-
-        image_name = self._remove_digest(image_name)
-
-        if ":" not in image_name:
-            return image_name, "latest"
-
-        parts = image_name.split(":")
-
-        if len(parts) == 2:
-            return self._handle_simple_case(parts, image_name)
-
-        tag_result = self._find_tag_in_complex_case(parts, image_name)
-        if tag_result:
-            return tag_result
-
-        return image_name, "latest"
-
-    def _remove_digest(self, image_name: str) -> str:
-        """Remove digest part if present (everything after @)."""
+            return image_name
         if "@" in image_name:
-            return image_name.split("@")[0]
+            return image_name.split("@", 1)[0]
         return image_name
 
-    def _handle_simple_case(self, parts: list[str], image_name: str) -> tuple[str, str]:
-        """Handle simple image:tag or registry:port/image cases."""
-        if "/" not in parts[1]:
-            return parts[0], parts[1]
-        return image_name, "latest"
+    def _parse_image_name(self, image_name: str) -> tuple[str, str, str]:
+        """Parse a Docker image name into (registry, repository, tag).
 
-    def _find_tag_in_complex_case(
-        self, parts: list[str], image_name: str
-    ) -> tuple[str, str] | None:
-        """Find the last colon that separates a tag (no '/' in the part after it)."""
-        for i in range(len(parts) - 1, 0, -1):
-            potential_tag = parts[i]
-            potential_repo = ":".join(parts[:i])
-            if "/" not in potential_tag and potential_tag:
-                if self._is_port_number(potential_tag, parts, i):
-                    continue
-                return potential_repo, potential_tag
-        return None
+        Handles various formats:
+        - nginx -> (None, nginx, latest)
+        - nginx:1.21 -> (None, nginx, 1.21)
+        - registry.com/nginx:latest -> (registry.com, nginx, latest)
+        - ghcr.io/home-assistant/home-assistant:dev -> (ghcr.io, home-assistant/home-assistant, dev)
+        - nginx@sha256:abc123 -> (None, nginx, latest)
+        - localhost:5000/nginx:latest -> (localhost:5000, nginx, latest)
+        """
+        if not image_name:
+            return None, "unknown", "latest"
 
-    def _is_port_number(self, potential_tag: str, parts: list[str], i: int) -> bool:
-        """Check if the potential tag is actually a port number."""
+        image_name = self._remove_digest(image_name)
+        tag = "latest"
+
+        # Split off tag if present
+        if ":" in image_name:
+            parts = image_name.rsplit(":", 1)
+            if "/" in parts[1]:
+                # e.g. localhost:5000/nginx
+                repo = image_name
+            else:
+                repo = parts[0]
+                tag = parts[1]
+        else:
+            repo = image_name
+
+        # Registry detection
+        if "/" in repo:
+            first = repo.split("/")[0]
+            if "." in first or ":" in first:
+                registry = first
+                repo = "/".join(repo.split("/")[1:])
+            else:
+                registry = None
+        else:
+            registry = None
+
+        # Docker Hub official images: prepend library/ if needed
         if (
-            potential_tag.isdigit()
-            and len(parts) > 2
-            and i > 0
-            and (
-                (i < len(parts) - 1 and "/" not in ":".join(parts[i + 1 :]))
-                or i == len(parts) - 1
-            )
-        ):
-            return True
-        return False
+            registry in (None, "docker.io", "registry-1.docker.io")
+        ) and "/" not in repo:
+            repo = f"library/{repo}"
 
-    def _invalidate_cache_if_needed(self) -> None:
-        """Invalidate cached registry responses if last update check is too old."""
-        if self.last_update_check is None:
-            return
+        return registry, repo, tag
 
-        # Invalidate cache if last check was more than 24 hours ago
-        cache_expiry = timedelta(hours=24)
-        if datetime.now() - self.last_update_check > cache_expiry:
-            _LOGGER.debug("Invalidating stale registry cache")
-            self.cached_registry_responses.clear()
-
-    def check_image_updates(self, eid: str, container_data: dict) -> bool:
-        """Check if an image update is available for a container."""
+    def check_image_updates(
+        self, eid: str, container_data: dict, return_registry_used: bool = False
+    ) -> bool:
+        """Check if an image update is available for a container. Optional: return, ob Registry-Request gemacht wurde."""
         container_id = container_data.get("Id", "")
         container_name = container_data.get("Name", "").lstrip("/")
         image_name = container_data.get("Image", "")
 
         if not image_name:
             self._log_and_cache_no_image(container_id, container_name)
-            return False
+            return (False, False) if return_registry_used else False
 
-        image_repo, image_tag = self._parse_image_name(image_name)
-        image_key = f"{image_repo}:{image_tag}"
+        registry, image_repo, image_tag = self._parse_image_name(image_name)
+        if registry:
+            image_key = f"{registry}/{image_repo}:{image_tag}"
+        else:
+            image_key = f"{image_repo}:{image_tag}"
 
         _LOGGER.debug(
-            "Container %s: Parsed image '%s' -> repo='%s', tag='%s'",
+            "Container %s: Parsed image '%s' -> registry='%s', repo='%s', tag='%s'",
             container_name,
             image_name,
+            registry,
             image_repo,
             image_tag,
         )
@@ -543,18 +538,29 @@ class PortainerCoordinator(DataUpdateCoordinator):
         should_check = self.should_check_updates()
 
         if not should_check and container_id in self.cached_update_results:
-            return self.cached_update_results[container_id]
+            return (
+                (self.cached_update_results[container_id], False)
+                if return_registry_used
+                else self.cached_update_results[container_id]
+            )
 
         self._invalidate_cache_if_needed()
 
         try:
             if should_check:
-                registry_response = self._get_registry_response(
-                    eid, image_repo, image_tag, image_key
+                status_code, registry_response, registry_used = (
+                    self._get_registry_response(
+                        eid,
+                        registry,
+                        image_repo,
+                        image_tag,
+                        image_key,
+                        return_registry_used=True,
+                    )
                 )
-                if not registry_response:
+                if status_code != 200:
                     self.cached_update_results[container_id] = False
-                    return False
+                    return (False, registry_used) if return_registry_used else False
 
                 update_available = self._compare_image_ids(
                     registry_response,
@@ -564,17 +570,24 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     image_name,
                 )
 
-                self.last_update_check = datetime.now()
-                return update_available
+                return (
+                    (update_available, registry_used)
+                    if return_registry_used
+                    else update_available
+                )
 
-            return self.cached_update_results.get(container_id, False)
+            return (
+                (self.cached_update_results.get(container_id, False), False)
+                if return_registry_used
+                else self.cached_update_results.get(container_id, False)
+            )
 
         except (KeyError, ValueError, TypeError) as e:
             _LOGGER.warning(
                 "Container %s: Update check failed - %s", container_name, str(e)
             )
             self.cached_update_results[container_id] = False
-            return False
+            return (False, False) if return_registry_used else False
 
     def _log_and_cache_no_image(self, container_id: str, container_name: str) -> None:
         _LOGGER.debug(
@@ -584,23 +597,96 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.cached_update_results[container_id] = False
 
     def _get_registry_response(
-        self, eid: str, image_repo: str, image_tag: str, image_key: str
-    ) -> dict:
+        self,
+        eid: str,
+        registry: str,
+        image_repo: str,
+        image_tag: str,
+        image_key: str,
+        return_registry_used: bool = False,
+    ) -> tuple:
+        """Fetch the image manifest from the registry using DockerRegistry. Gibt optional zurück, ob Registry-Request gemacht wurde."""
         if image_key in self.cached_registry_responses:
-            return self.cached_registry_responses[image_key]
-        api_result = self.api.query(
-            f"endpoints/{eid}/docker/images/{image_repo}:{image_tag}/json",
-            "get",
-        )
-        if isinstance(api_result, list) and api_result:
-            registry_response = api_result[0]
-        elif isinstance(api_result, dict):
-            registry_response = api_result
-        else:
-            registry_response = {}
-        self.cached_registry_responses[image_key] = registry_response
-        return registry_response
+            if return_registry_used:
+                return 200, self.cached_registry_responses[image_key], False
+            return 200, self.cached_registry_responses[image_key]
 
+        # Get arch and os from local image list
+        images = self.api.query(f"endpoints/{eid}/docker/images/json")
+        arch, os = None, None
+        for img in images:
+            # Try to match by RepoTags or Id
+            if image_key in img.get("RepoTags", []) or img.get("Id") == image_key:
+                arch = img.get("Architecture")
+                os = img.get("Os")
+                break
+        # If arch or os not found, try to get it from the endpoint info
+        if not arch or not os:
+            info = self.api.query(f"endpoints/{eid}/docker/info")
+            arch = arch or info.get("Architecture", "amd64")
+            os = os or info.get("OSType", "linux")
+        # Normalize architecture for compatibility
+        if arch == "x86_64":
+            arch = "amd64"
+        try:
+            # Nutze die Registry-Factory für die passende Registry-Implementierung
+            from .docker_registry import BaseRegistry
+
+            registry_client = BaseRegistry.for_registry(image_repo, registry)
+            manifest = registry_client.get_manifest(image_tag, arch=arch, os=os)
+            # For consistency, add the digest as "Id" for comparison if present
+            if (
+                manifest.get("schemaVersion") == 2
+                and manifest.get("mediaType", "")
+                in (
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                    "application/vnd.oci.image.manifest.v1+json",
+                )
+                and "config" in manifest
+                and "digest" in manifest["config"]
+            ):
+                manifest["Id"] = manifest["config"]["digest"]
+            # Fallback: If no config.digest, try to use Docker-Content-Digest header
+            if "Id" not in manifest:
+                pass  # No digest available
+            self.cached_registry_responses[image_key] = manifest
+            if return_registry_used:
+                return 200, manifest, True
+            return 200, manifest
+        except requests.HTTPError as e:
+            _LOGGER.warning(
+                "Failed to fetch registry data for image '%s': %s", image_key, str(e)
+            )
+            if return_registry_used:
+                return 404, {}, True
+            return 404, {}
+        except ValueError as e:
+            _LOGGER.warning(
+                "No matching manifest found for image '%s': %s", image_key, str(e)
+            )
+            if return_registry_used:
+                return 404, {}, True
+            return 404, {}
+        except DockerRegistryError as e:
+            _LOGGER.warning(
+                "DockerRegistry error for image '%s': %s", image_key, str(e)
+            )
+            if return_registry_used:
+                return 500, {}, True
+            return 500, {}
+        except Exception as e:
+            _LOGGER.warning(
+                "Unexpected error fetching registry data for image '%s': %s",
+                image_key,
+                str(e),
+            )
+            if return_registry_used:
+                return 500, {}, True
+            return 500, {}
+
+    # ---------------------------
+    #   _compare_image_ids
+    # ---------------------------
     def _compare_image_ids(
         self,
         registry_response: dict,
@@ -635,3 +721,21 @@ class PortainerCoordinator(DataUpdateCoordinator):
 
         self.cached_update_results[container_id] = update_available
         return update_available
+
+    def _flatten_containers_dict(self, containers: dict) -> dict:
+        """Flatten the containers dictionary so each environment has its own set of containers."""
+        return {
+            f"{eid}{cid}": value
+            for eid, t_dict in containers.items()
+            for cid, value in t_dict.items()
+        }
+
+    def _invalidate_cache_if_needed(self):
+        """Invalidate cached registry responses if the last check is older than 24 hours."""
+        if self.last_update_check is None:
+            self.cached_registry_responses.clear()
+            return
+        now = datetime.now()
+        if (now - self.last_update_check).total_seconds() > 86400:
+            self.cached_registry_responses.clear()
+        # Otherwise, do nothing (cache remains)

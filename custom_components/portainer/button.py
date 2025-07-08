@@ -25,7 +25,7 @@ async def async_setup_entry(
 
     # Always create the button - availability will be controlled dynamically
     button = ForceUpdateCheckButton(coordinator, config_entry.entry_id)
-    await async_add_entities([button])
+    async_add_entities([button])
     _LOGGER.debug("Force Update Check button created")
 
 
