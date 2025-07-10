@@ -71,7 +71,12 @@ class TestDockerImageTagParsing:
             ),
             # Digest cases (SHA256 should be removed)
             ("nginx@sha256:abc123def456", "docker.io", "library/nginx", "latest"),
-            ("nginx:latest@sha256:abc123def456", "docker.io", "library/nginx", "latest"),
+            (
+                "nginx:latest@sha256:abc123def456",
+                "docker.io",
+                "library/nginx",
+                "latest",
+            ),
             (
                 "registry.com/nginx:1.21@sha256:abc123def456",
                 "registry.com",
@@ -114,7 +119,12 @@ class TestDockerImageTagParsing:
             # Complex version tags
             ("myapp:2.1.0-rc.1", "docker.io", "library/myapp", "2.1.0-rc.1"),
             ("myapp:v2.1.0_alpha", "docker.io", "library/myapp", "v2.1.0_alpha"),
-            ("myapp:snapshot-20231201", "docker.io", "library/myapp", "snapshot-20231201"),
+            (
+                "myapp:snapshot-20231201",
+                "docker.io",
+                "library/myapp",
+                "snapshot-20231201",
+            ),
         ],
     )
     def test_parse_image_name(

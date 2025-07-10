@@ -69,7 +69,9 @@ def coordinator_with_mock(hass: HomeAssistant, mock_config_entry, mock_api):
 
 class TestUpdateCheckLogic:
     @pytest.mark.asyncio
-    async def test_check_image_updates_local_image_not_on_registry(self, coordinator_with_mock):
+    async def test_check_image_updates_local_image_not_on_registry(
+        self, coordinator_with_mock
+    ):
         """Test check_image_updates for a local-only image (not on registry). Should return status 2 (not yet checked) on first run."""
         container_data = {
             "Id": "test_container",
@@ -81,7 +83,9 @@ class TestUpdateCheckLogic:
         assert result["status"] == 2
 
     @pytest.mark.asyncio
-    async def test_check_image_updates_official_dockerhub_image(self, coordinator_with_mock):
+    async def test_check_image_updates_official_dockerhub_image(
+        self, coordinator_with_mock
+    ):
         """Test check_image_updates for an official Docker Hub image (e.g. traefik:latest). Should return status 2 (not yet checked) on first run."""
         container_data = {
             "Id": "test_container",
@@ -167,7 +171,9 @@ class TestUpdateCheckLogic:
         assert result == ""
 
     @pytest.mark.asyncio
-    async def test_invalidate_cache_if_needed_no_last_check(self, coordinator_with_mock):
+    async def test_invalidate_cache_if_needed_no_last_check(
+        self, coordinator_with_mock
+    ):
         """Test cache invalidation when no last check exists."""
         coordinator_with_mock.last_update_check = None
         # Should not raise any errors
@@ -337,6 +343,7 @@ class TestUpdateCheckLogic:
             "Name": "/test",
             "Image": "nginx:latest",
         }
+
         def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
             return {
                 "status": 500,
@@ -344,6 +351,7 @@ class TestUpdateCheckLogic:
                 "manifest": {},
                 "registry_used": True,
             }
+
         coordinator_with_mock._get_registry_response = fake_get_registry_response
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
         assert isinstance(result, dict)
@@ -353,7 +361,9 @@ class TestUpdateCheckLogic:
         assert "registry_used" in result
 
     @pytest.mark.asyncio
-    async def test_check_image_updates_with_complex_image_name(self, coordinator_with_mock):
+    async def test_check_image_updates_with_complex_image_name(
+        self, coordinator_with_mock
+    ):
         """Test check_image_updates with complex image name parsing."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
         coordinator_with_mock.last_update_check = None  # First time check
@@ -378,7 +388,9 @@ class TestUpdateCheckLogic:
         assert isinstance(result["status"], int)
 
     @pytest.mark.asyncio
-    async def test_get_next_update_check_time_feature_disabled(self, coordinator_with_mock):
+    async def test_get_next_update_check_time_feature_disabled(
+        self, coordinator_with_mock
+    ):
         """Test get_next_update_check_time when feature is disabled."""
         coordinator_with_mock.features["feature_switch_update_check"] = False
 
@@ -386,7 +398,9 @@ class TestUpdateCheckLogic:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_get_next_update_check_time_today_not_reached(self, coordinator_with_mock):
+    async def test_get_next_update_check_time_today_not_reached(
+        self, coordinator_with_mock
+    ):
         """Test get_next_update_check_time when today's time hasn't been reached."""
         # Set check hour to 23 (11 PM) - very likely in the future
         coordinator_with_mock.config_entry.options["update_check_hour"] = 23
@@ -417,7 +431,9 @@ class TestUpdateCheckIntegration:
     """Integration tests for update check functionality with Home Assistant."""
 
     @pytest.mark.asyncio
-    async def test_coordinator_initialization(self, hass: HomeAssistant, mock_config_entry):
+    async def test_coordinator_initialization(
+        self, hass: HomeAssistant, mock_config_entry
+    ):
         """Test that coordinator initializes properly with Home Assistant."""
         # Test that the coordinator can be properly initialized with HA
         coordinator = PortainerCoordinator.__new__(PortainerCoordinator)

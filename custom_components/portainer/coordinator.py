@@ -350,7 +350,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             ]["Update_Available"] = update_available["status"]
                             self.raw_data["containers"][eid][cid][
                                 CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Description"] = update_available["status_description"]
+                            ]["Update_Description"] = update_available[
+                                "status_description"
+                            ]
                         del self.raw_data["containers"][eid][cid][
                             CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
                         ]
@@ -365,7 +367,6 @@ class PortainerCoordinator(DataUpdateCoordinator):
         # Only set last_update_check if a real registry request was made (ignore cache)
         if registry_checked:
             self.last_update_check = datetime.now()
-
 
     def _get_update_description(self, status, registry_name=None, translations=None):
         """Return a user-facing description for a given update status code, using translations if available."""
@@ -488,7 +489,6 @@ class PortainerCoordinator(DataUpdateCoordinator):
         if image_id.startswith("sha256:"):
             return image_id[7:]  # Remove "sha256:" prefix
         return image_id
-
 
     def _get_registry_response(
         self,
@@ -679,12 +679,12 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 image_tag,
                 image_key,
             )
-            
+
             # If the registry response is not successful, return the result directly
             if result["status"] != 200:
                 self.cached_update_results[container_id] = result
                 return result
-            
+
             # If the registry response is successful, compare image IDs
             update_available = self._compare_image_ids(
                 result["manifest"],
@@ -696,7 +696,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
             if update_available:
                 result["status"] = 1
                 translations = getattr(self.hass, "translations", {})
-                result["status_description"] = self._get_update_description(1, None, translations)
+                result["status_description"] = self._get_update_description(
+                    1, None, translations
+                )
                 self.cached_update_results[container_id] = result
             else:
                 result["status"] = 0

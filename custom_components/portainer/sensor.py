@@ -555,3 +555,8 @@ class UpdateCheckSensor(PortainerSensor):
             pass
 
         return attrs
+
+    async def async_update_entry(self, config_entry):
+        """Handle config entry update (called after options change)."""
+        self.coordinator.config_entry = config_entry
+        self.async_write_ha_state()

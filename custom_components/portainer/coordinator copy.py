@@ -231,10 +231,14 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         """Get containers from all endpoints."""
         self.raw_data["containers"] = {}
-        registry_checked = False  # True if at least one real registry request (not cache) was made
+        registry_checked = (
+            False  # True if at least one real registry request (not cache) was made
+        )
         for eid in list(self.raw_data["endpoints"]):
             if self.raw_data["endpoints"][eid]["Status"] == 1:
-                self.raw_data["containers"][eid] = self._parse_containers_for_endpoint(eid)
+                self.raw_data["containers"][eid] = self._parse_containers_for_endpoint(
+                    eid
+                )
                 self._set_container_environment_and_config(eid)
                 if self._custom_features_enabled():
                     # Patch: track registry_checked if any container update check used registry (not cache)
@@ -244,7 +248,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
                             update_result = self.check_image_updates(eid, container)
                             if update_result.get("registry_used", False):
                                 registry_checked = True
-        self.raw_data["containers"] = self._flatten_containers_dict(self.raw_data["containers"])
+        self.raw_data["containers"] = self._flatten_containers_dict(
+            self.raw_data["containers"]
+        )
         # Setze last_update_check nur, wenn wirklich ein Registry-Request gemacht wurde (ignore cache)
         if registry_checked:
             self.last_update_check = datetime.now()
@@ -504,7 +510,6 @@ class PortainerCoordinator(DataUpdateCoordinator):
         if image_id.startswith("sha256:"):
             return image_id[7:]  # Remove "sha256:" prefix
         return image_id
-
 
     def _get_registry_response(
         self,

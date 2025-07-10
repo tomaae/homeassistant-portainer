@@ -15,7 +15,7 @@ from .coordinator import PortainerCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
-async def async_setup_entry( #NOSONAR
+async def async_setup_entry(  # NOSONAR
     hass: HomeAssistant,
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
@@ -43,11 +43,9 @@ class ForceUpdateCheckButton(ButtonEntity):
         self._attr_unique_id = f"{entry_id}_force_update_check_final"
 
         # Set default enabled state based on feature
-        # Use DEFAULT_FEATURE_UPDATE_CHECK as fallback if options not set yet
         feature_enabled = coordinator.config_entry.options.get(
             CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
         )
-        # Ensure we only accept actual boolean True, not truthy values like "true" string
         feature_enabled = feature_enabled is True
         self._attr_entity_registry_enabled_default = feature_enabled
 
@@ -71,11 +69,9 @@ class ForceUpdateCheckButton(ButtonEntity):
     @property
     def available(self) -> bool:
         """Return whether the entity is available."""
-        # Button is available when feature is enabled AND coordinator is connected
         feature_enabled = self.coordinator.config_entry.options.get(
             CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
         )
-        # Ensure we only accept actual boolean True, not truthy values
         feature_enabled = feature_enabled is True
         coordinator_connected = self.coordinator.connected()
 
@@ -89,11 +85,9 @@ class ForceUpdateCheckButton(ButtonEntity):
 
     @property
     def entity_registry_enabled_default(self) -> bool:
-        """Return if the entity should be enabled by default."""
         feature_enabled = self.coordinator.config_entry.options.get(
             CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
         )
-        # Ensure we only accept actual boolean True, not truthy values
         feature_enabled = feature_enabled is True
         _LOGGER.debug(
             "Button entity_registry_enabled_default called: %s", feature_enabled
@@ -104,3 +98,8 @@ class ForceUpdateCheckButton(ButtonEntity):
         """Handle the button press."""
         _LOGGER.info("Force Update Check button pressed")
         await self.coordinator.force_update_check()
+
+    async def async_update_entry(self, config_entry):
+        """Handle config entry update (called after options change)."""
+        self.coordinator.config_entry = config_entry
+        self.async_write_ha_state()

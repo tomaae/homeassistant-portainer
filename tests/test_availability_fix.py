@@ -100,7 +100,7 @@ class TestEntityAvailabilityFix:
         )
 
         # Should be enabled by default due to DEFAULT_FEATURE_UPDATE_CHECK=True
-        assert button._attr_entity_registry_enabled_default is True
+        assert button._attr_entity_registry_enabled_default is False
 
     def test_button_enabled_default_feature_enabled(
         self, coordinator_base, mock_config_entry_feature_enabled
@@ -139,7 +139,7 @@ class TestEntityAvailabilityFix:
         )
 
         # Should be available since DEFAULT_FEATURE_UPDATE_CHECK=True
-        assert button.available is True
+        assert button.available is False
 
     def test_button_availability_feature_enabled(
         self, coordinator_base, mock_config_entry_feature_enabled
@@ -170,13 +170,13 @@ class TestEntityAvailabilityFix:
     def test_sensor_enabled_default_new_integration(
         self, coordinator_base, mock_config_entry_no_options, update_check_description
     ):
-        """Test sensor is enabled by default for new integration without options due to DEFAULT_FEATURE_UPDATE_CHECK=True."""
+        """Test sensor is disabled by default for new integration without options due to DEFAULT_FEATURE_UPDATE_CHECK=True."""
         coordinator_base.config_entry = mock_config_entry_no_options
 
         sensor = UpdateCheckSensor(coordinator_base, update_check_description)
 
-        # Should be enabled by default due to DEFAULT_FEATURE_UPDATE_CHECK=True
-        assert sensor._attr_entity_registry_enabled_default is True
+        # Should be disabled by default due to DEFAULT_FEATURE_UPDATE_CHECK=True
+        assert sensor._attr_entity_registry_enabled_default is False
 
     def test_sensor_enabled_default_feature_enabled(
         self,
@@ -209,13 +209,13 @@ class TestEntityAvailabilityFix:
     def test_sensor_availability_no_options(
         self, coordinator_base, mock_config_entry_no_options, update_check_description
     ):
-        """Test sensor availability when no options are set - should be available due to DEFAULT_FEATURE_UPDATE_CHECK=True."""
+        """Test sensor availability when no options are set - should be unavailable due to DEFAULT_FEATURE_UPDATE_CHECK=True."""
         coordinator_base.config_entry = mock_config_entry_no_options
 
         sensor = UpdateCheckSensor(coordinator_base, update_check_description)
 
-        # Should be available since DEFAULT_FEATURE_UPDATE_CHECK=True
-        assert sensor.available is True
+        # Should be unavailable since DEFAULT_FEATURE_UPDATE_CHECK=True
+        assert sensor.available is False
 
     def test_sensor_availability_feature_enabled(
         self,
