@@ -58,12 +58,12 @@ def test_check_image_updates_new_container_status_code():
 def test_parse_image_name_staticmethod():
     # Test the static method on BaseRegistry (dict return)
     result = BaseRegistry.parse_image_name("nginx")
-    assert result["registry"] is None
+    assert result["registry"] == "docker.io"
     assert result["image_repo"] == "library/nginx"
     assert result["image_tag"] == "latest"
 
     result = BaseRegistry.parse_image_name("nginx:1.21")
-    assert result["registry"] is None
+    assert result["registry"] == "docker.io"
     assert result["image_repo"] == "library/nginx"
     assert result["image_tag"] == "1.21"
 
@@ -78,7 +78,7 @@ def test_parse_image_name_staticmethod():
     assert result["image_tag"] == "dev"
 
     result = BaseRegistry.parse_image_name("nginx@sha256:abc123")
-    assert result["registry"] is None
+    assert result["registry"] == "docker.io"
     assert result["image_repo"] == "library/nginx"
     assert result["image_tag"] == "latest"
 

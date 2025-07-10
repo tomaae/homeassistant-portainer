@@ -18,10 +18,10 @@ class TestDockerImageTagParsing:
         ("image_name", "expected_registry", "expected_repo", "expected_tag"),
         [
             # Simple cases (Docker Hub official images should return 'library/<name>')
-            ("nginx", None, "library/nginx", "latest"),
-            ("nginx:latest", None, "library/nginx", "latest"),
-            ("nginx:1.21", None, "library/nginx", "1.21"),
-            ("nginx:1.21.3", None, "library/nginx", "1.21.3"),
+            ("nginx", "docker.io", "library/nginx", "latest"),
+            ("nginx:latest", "docker.io", "library/nginx", "latest"),
+            ("nginx:1.21", "docker.io", "library/nginx", "1.21"),
+            ("nginx:1.21.3", "docker.io", "library/nginx", "1.21.3"),
             # Registry cases
             ("registry.example.com/nginx", "registry.example.com", "nginx", "latest"),
             (
@@ -47,11 +47,11 @@ class TestDockerImageTagParsing:
             ),
             ("127.0.0.1:5000/myapp:v1.0", "127.0.0.1:5000", "myapp", "v1.0"),
             # Namespace/organization
-            ("library/nginx:latest", None, "library/nginx", "latest"),
-            ("grafana/loki:latest", None, "grafana/loki", "latest"),
+            ("library/nginx:latest", "docker.io", "library/nginx", "latest"),
+            ("grafana/loki:latest", "docker.io", "grafana/loki", "latest"),
             (
                 "containrrr/watchtower:latest",
-                None,
+                "docker.io",
                 "containrrr/watchtower",
                 "latest",
             ),
@@ -70,8 +70,8 @@ class TestDockerImageTagParsing:
                 "3.1",
             ),
             # Digest cases (SHA256 should be removed)
-            ("nginx@sha256:abc123def456", None, "library/nginx", "latest"),
-            ("nginx:latest@sha256:abc123def456", None, "library/nginx", "latest"),
+            ("nginx@sha256:abc123def456", "docker.io", "library/nginx", "latest"),
+            ("nginx:latest@sha256:abc123def456", "docker.io", "library/nginx", "latest"),
             (
                 "registry.com/nginx:1.21@sha256:abc123def456",
                 "registry.com",
@@ -79,16 +79,16 @@ class TestDockerImageTagParsing:
                 "1.21",
             ),
             # Edge cases
-            ("", None, "unknown", "latest"),
+            ("", "docker.io", "unknown", "latest"),
             (
                 "image-with-dashes:v1.0-beta",
-                None,
+                "docker.io",
                 "library/image-with-dashes",
                 "v1.0-beta",
             ),
             (
                 "image_with_underscores:v1.0_stable",
-                None,
+                "docker.io",
                 "library/image_with_underscores",
                 "v1.0_stable",
             ),
@@ -112,9 +112,9 @@ class TestDockerImageTagParsing:
                 "v1.3.1",
             ),
             # Complex version tags
-            ("myapp:2.1.0-rc.1", None, "library/myapp", "2.1.0-rc.1"),
-            ("myapp:v2.1.0_alpha", None, "library/myapp", "v2.1.0_alpha"),
-            ("myapp:snapshot-20231201", None, "library/myapp", "snapshot-20231201"),
+            ("myapp:2.1.0-rc.1", "docker.io", "library/myapp", "2.1.0-rc.1"),
+            ("myapp:v2.1.0_alpha", "docker.io", "library/myapp", "v2.1.0_alpha"),
+            ("myapp:snapshot-20231201", "docker.io", "library/myapp", "snapshot-20231201"),
         ],
     )
     def test_parse_image_name(
@@ -133,7 +133,7 @@ class TestDockerImageTagParsing:
         from custom_components.portainer.docker_registry import BaseRegistry
 
         result = BaseRegistry.parse_image_name(None)
-        assert result["registry"] is None
+        assert result["registry"] == "docker.io"
         assert result["image_repo"] == "unknown"
         assert result["image_tag"] == "latest"
 
@@ -164,8 +164,8 @@ class TestDockerImageTagParsing:
         from custom_components.portainer.docker_registry import BaseRegistry
 
         test_cases = [
-            ("nginx@sha256:abc123", None, "library/nginx", "latest"),
-            ("nginx:1.21@sha256:def456", None, "library/nginx", "1.21"),
+            ("nginx@sha256:abc123", "docker.io", "library/nginx", "latest"),
+            ("nginx:1.21@sha256:def456", "docker.io", "library/nginx", "1.21"),
             ("registry.com/app:v1.0@sha256:789xyz", "registry.com", "app", "v1.0"),
         ]
 
@@ -180,9 +180,9 @@ class TestDockerImageTagParsing:
         from custom_components.portainer.docker_registry import BaseRegistry
 
         test_cases = [
-            ("nginx:123", None, "library/nginx", "123"),
-            ("app:2023", None, "library/app", "2023"),
-            ("service:20240101", None, "library/service", "20240101"),
+            ("nginx:123", "docker.io", "library/nginx", "123"),
+            ("app:2023", "docker.io", "library/app", "2023"),
+            ("service:20240101", "docker.io", "library/service", "20240101"),
         ]
 
         for image_name, expected_registry, expected_repo, expected_tag in test_cases:

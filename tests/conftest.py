@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import pytest_homeassistant_custom_component
 
 # Add the custom component to Python path
 custom_components_path = Path(__file__).parent.parent / "custom_components"
@@ -15,7 +16,7 @@ sys.path.insert(0, str(custom_components_path))
 os.environ["TESTING"] = "true"
 
 # Import the official Home Assistant test framework
-pytest_plugins = "pytest_homeassistant_custom_component"
+pytest_plugins = ["pytest_homeassistant_custom_component"]
 
 # Import after path setup
 from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
@@ -48,19 +49,6 @@ def pytest_collection_modifyitems(config, items):
             item.add_marker(pytest.mark.integration)
         else:
             item.add_marker(pytest.mark.unit)
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    yield loop
-    if not loop.is_closed():
-        loop.close()
 
 
 # Constant for test config entry title and name

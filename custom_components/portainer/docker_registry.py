@@ -27,10 +27,10 @@ class BaseRegistry(ABC):
         """Parse a Docker image name into a dict with registry, image_repo, image_tag, image_key."""
         if not image_name:
             return {
-                "registry": None,
+                "registry": "docker.io",
                 "image_repo": "unknown",
                 "image_tag": "latest",
-                "image_key": "unknown:latest",
+                "image_key": "docker.io/unknown:latest",
             }
 
         # Remove digest if present
