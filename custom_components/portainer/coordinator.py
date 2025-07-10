@@ -18,6 +18,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import PortainerAPI
 from .apiparser import parse_api
@@ -25,12 +26,10 @@ from .const import (
     CONF_FEATURE_HEALTH_CHECK,  # feature switch
     CONF_FEATURE_RESTART_POLICY,
     CONF_FEATURE_UPDATE_CHECK,
-    CONF_UPDATE_CHECK_HOUR,
     CUSTOM_ATTRIBUTE_ARRAY,
     DEFAULT_FEATURE_HEALTH_CHECK,
     DEFAULT_FEATURE_RESTART_POLICY,
     DEFAULT_FEATURE_UPDATE_CHECK,
-    DEFAULT_UPDATE_CHECK_HOUR,
     DOMAIN,
     SCAN_INTERVAL,
 )
@@ -103,11 +102,36 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.config_entry.async_on_unload(self.async_shutdown)
 
     @property
-    def update_check_hour(self):
-        """Return the update check hour from config_entry options or default."""
-        return self.config_entry.options.get(
-            CONF_UPDATE_CHECK_HOUR, DEFAULT_UPDATE_CHECK_HOUR
-        )
+    def update_check_time(self):
+        """Return the update check time (hour, minute) from config_entry options or default."""
+        time_str = self.config_entry.options.get("update_check_time", "02:00")
+        try:
+            hour, minute = [int(x) for x in time_str.split(":")]
+        except Exception:
+            hour, minute = 2, 0  # fallback
+        return hour, minute
+
+    # ---------------------------
+    #   async_shutdown
+    # ---------------------------
+    async def async_update_entry(self, config_entry):
+        """Handle config entry update (called after options change)."""
+        self.config_entry = config_entry
+        # Update features from new options
+        self.features = {
+            CONF_FEATURE_HEALTH_CHECK: config_entry.options.get(
+                CONF_FEATURE_HEALTH_CHECK, DEFAULT_FEATURE_HEALTH_CHECK
+            ),
+            CONF_FEATURE_RESTART_POLICY: config_entry.options.get(
+                CONF_FEATURE_RESTART_POLICY, DEFAULT_FEATURE_RESTART_POLICY
+            ),
+            CONF_FEATURE_UPDATE_CHECK: config_entry.options.get(
+                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+            ),
+        }
+        # Reset last_update_check so the new schedule is taken over immediately
+        self.last_update_check = None
+        await self.async_request_refresh()
 
     # ---------------------------
     #   async_shutdown
@@ -128,7 +152,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
     #   _async_update_data
     # ---------------------------
     async def _async_update_data(self) -> dict[str, dict]:
-        """Update Portainer data."""
+        """Update Portainer data. Triggers update check at scheduled time without recursion."""
         try:
             await asyncio.wait_for(self.lock.acquire(), timeout=10)
         except TimeoutError:
@@ -366,7 +390,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
 
         # Only set last_update_check if a real registry request was made (ignore cache)
         if registry_checked:
-            self.last_update_check = datetime.now()
+            self.last_update_check = dt_util.now()
 
     def _get_update_description(self, status, registry_name=None, translations=None):
         """Return a user-facing description for a given update status code, using translations if available."""
@@ -411,25 +435,27 @@ class PortainerCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Force update requested - bypassing time checks")
             return True
 
-        now = datetime.now()
+        now = dt_util.now()
+        hour, minute = self.update_check_time
+        scheduled_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
-        # Calculate the next check time (today at configured hour)
-        next_check = now.replace(
-            hour=self.update_check_hour, minute=0, second=0, microsecond=0
-        )
+        # If now is before scheduled time today
+        if now < scheduled_time:
+            # Not yet time for today's check
+            return False
 
-        # If the configured hour has passed today, set next check for tomorrow
-        if now.hour >= self.update_check_hour:
-            next_check += timedelta(days=1)
-
-        # Check if we've passed the next check time since last check
+        # Now is after or at scheduled time today
         if self.last_update_check is None:
-            result = now >= next_check
-        else:
-            result = self.last_update_check < next_check and now >= next_check
-        if result:
-            _LOGGER.debug("Scheduled update check time reached")
-        return result
+            _LOGGER.debug("Scheduled update check time reached (first run)")
+            return True
+        # If last check was before today's scheduled time, trigger
+        if self.last_update_check < scheduled_time:
+            _LOGGER.debug(
+                "Scheduled update check time reached (last check before today)"
+            )
+            return True
+        # Already checked after scheduled time today
+        return False
 
     # ---------------------------
     #   get_next_update_check_time
@@ -439,10 +465,9 @@ class PortainerCoordinator(DataUpdateCoordinator):
         if not self.features[CONF_FEATURE_UPDATE_CHECK]:
             return None
 
-        now = datetime.now()
-        today_check = now.replace(
-            hour=self.update_check_hour, minute=0, second=0, microsecond=0
-        )
+        now = dt_util.now()
+        hour, minute = self.update_check_time
+        today_check = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
         if now < today_check:
             # Today's check hasn't happened yet
@@ -473,7 +498,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
         self.cached_registry_responses.clear()
 
         # Update last check time to now to reset the cache expiry timer
-        self.last_update_check = datetime.now()
+        self.last_update_check = dt_util.now()
 
         # Trigger data refresh
         await self.async_request_refresh()
@@ -816,7 +841,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
         if self.last_update_check is None:
             self.cached_registry_responses.clear()
             return
-        now = datetime.now()
+        now = dt_util.now()
         if (now - self.last_update_check).total_seconds() > 86400:
             self.cached_registry_responses.clear()
         # Otherwise, do nothing (cache remains)

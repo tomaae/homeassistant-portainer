@@ -1,12 +1,10 @@
 """Test fixtures and configuration for Portainer custom component tests."""
 
-import asyncio
 import os
 import sys
 from pathlib import Path
 
 import pytest
-import pytest_homeassistant_custom_component
 
 # Add the custom component to Python path
 custom_components_path = Path(__file__).parent.parent / "custom_components"
@@ -18,7 +16,9 @@ os.environ["TESTING"] = "true"
 # Import the official Home Assistant test framework
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
+
 # Import after path setup
+
 from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
 
 from custom_components.portainer.const import (  # noqa: E402

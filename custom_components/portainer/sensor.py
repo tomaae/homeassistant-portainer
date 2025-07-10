@@ -13,6 +13,7 @@ from homeassistant.helpers import entity_platform as ep
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
+from homeassistant.util import dt as dt_util
 
 from custom_components.portainer.const import (
     CONF_FEATURE_UPDATE_CHECK,
@@ -478,29 +479,20 @@ class UpdateCheckSensor(PortainerSensor):
     def native_value(self) -> str | datetime | None:
         """Return the update check status."""
         try:
-            # Check if system data exists and has the required attribute
-            if (
-                "system" in self.coordinator.data
-                and self.description.data_attribute in self.coordinator.data["system"]
-            ):
-                value = self.coordinator.data["system"][self.description.data_attribute]
+            # Immer aktuelle Logik aus Coordinator verwenden
+            feature_enabled = self.coordinator.config_entry.options.get(
+                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+            )
+            feature_enabled = feature_enabled is True
+            if not feature_enabled:
+                return "disabled"
+
+            next_update = self.coordinator.get_next_update_check_time()
+            if next_update:
+                # Zeige immer in Home Assistant Lokalzeit an
+                return dt_util.as_local(next_update)
             else:
-                # Fallback: determine status manually
-                update_enabled = self.coordinator.features.get(
-                    "feature_switch_update_check", False
-                )
-                if not update_enabled:
-                    return "disabled"
-
-                next_update = self.coordinator.get_next_update_check_time()
-                if next_update:
-                    value = next_update.isoformat()
-                else:
-                    return "never"
-
-            # Parse datetime for timestamp display
-            parsed_value = self._parse_datetime(value)
-            return parsed_value
+                return "never"
 
         except (KeyError, AttributeError, TypeError):
             return "never"
@@ -523,19 +515,20 @@ class UpdateCheckSensor(PortainerSensor):
         """Return extra state attributes."""
         attrs = super().extra_state_attributes or {}
 
-        # Add system update info from coordinator data
         try:
-            # Current update feature status
-            update_enabled = self.coordinator.features.get(
-                "feature_switch_update_check", False
+            # Aktuellen Feature-Status aus den Optionen lesen
+            update_enabled = self.coordinator.config_entry.options.get(
+                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
             )
+            update_enabled = update_enabled is True
             attrs["update_feature_enabled"] = update_enabled
 
             # Add user-friendly time display for datetime values
             value = self.native_value
             if isinstance(value, datetime):
                 attrs["time_until_check"] = self._get_time_until_text(value)
-                attrs["next_check_time"] = value.strftime("%Y-%m-%d %H:%M:%S %Z")
+                local_dt = dt_util.as_local(value)
+                attrs["next_check_time"] = local_dt.strftime("%Y-%m-%d %H:%M:%S %Z")
             elif value == "disabled":
                 attrs["status_text"] = "Update check is disabled"
             elif value == "never":
@@ -547,7 +540,6 @@ class UpdateCheckSensor(PortainerSensor):
                     "last_update_check", "never"
                 )
 
-            # Add container counts
             if "containers" in self.coordinator.data:
                 attrs["total_containers"] = len(self.coordinator.data["containers"])
 
@@ -559,4 +551,6 @@ class UpdateCheckSensor(PortainerSensor):
     async def async_update_entry(self, config_entry):
         """Handle config entry update (called after options change)."""
         self.coordinator.config_entry = config_entry
+        await self.coordinator.async_request_refresh()
         self.async_write_ha_state()
+        self.async_schedule_update_ha_state()

@@ -43,5 +43,3 @@ CONF_FEATURE_UPDATE_CHECK: Final = "feature_switch_update_check"
 DEFAULT_FEATURE_UPDATE_CHECK = False
 CONF_UPDATE_CHECK_TIME: Final = "update_check_time"
 DEFAULT_UPDATE_CHECK_TIME = "02:00"  # Default time as string HH:MM
-CONF_UPDATE_CHECK_HOUR: Final = "update_check_hour"
-DEFAULT_UPDATE_CHECK_HOUR = 2  # Default hour as integer (2 AM)

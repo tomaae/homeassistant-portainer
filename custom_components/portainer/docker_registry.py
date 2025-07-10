@@ -27,10 +27,10 @@ class BaseRegistry(ABC):
         """Parse a Docker image name into a dict with registry, image_repo, image_tag, image_key."""
         if not image_name:
             return {
-                "registry": "docker.io",
+                "registry": DOCKER_IO,
                 "image_repo": "unknown",
                 "image_tag": "latest",
-                "image_key": "docker.io/unknown:latest",
+                "image_key": f"{DOCKER_IO}/unknown:latest",
             }
 
         # Remove digest if present
@@ -78,10 +78,10 @@ class BaseRegistry(ABC):
     def _prepend_library_if_needed(registry, repo):
         dockerio_registries = (
             None,
-            "docker.io",
-            "registry-1.docker.io",
-            "docker.io:443",
-            "registry-1.docker.io:443",
+            DOCKER_IO,
+            DOCKER_IO_REGISTRY,
+            f"{DOCKER_IO}:443",
+            f"{DOCKER_IO_REGISTRY}:443",
         )
         if registry in dockerio_registries and "/" not in repo:
             return f"library/{repo}"
@@ -189,7 +189,7 @@ class BaseRegistry(ABC):
 
 class DockerIORegistry(BaseRegistry):
     def _get_token(self) -> Optional[str]:
-        token_url = f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{self.image_repo}:pull"
+        token_url = f"https://auth.{DOCKER_IO}/token?service=registry.{DOCKER_IO}&scope=repository:{self.image_repo}:pull"
         resp = requests.get(token_url, timeout=10)
         if resp.status_code != 200:
             raise requests.HTTPError(
