@@ -26,7 +26,7 @@ Features:
 
 ## Endpoints
 
-List of portainer endpoint.
+List of Portainer endpoints.
 
 ![Endpoints](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/endpoints.png)
 
@@ -36,11 +36,39 @@ List of containers.
 
 ![Containers](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/containers.png)
 
+## Update Check Feature
+
+The integration supports checking for available updates for your containers via Docker Hub and GitHub registries.
+
+- **Check update**: This option is **disabled by default**. To use update checks, you must enable the option in the integration settings (`Configuration -> Integrations -> Portainer -> Configure`).
+- **Update check time**: You can set the hour of day when the automatic update check should run. The update cycle is every 24 hours at the configured time.
+- **Update check button and sensor**: Both the update check button ("Force update check") and the update check sensor are **disabled by default** in the Home Assistant entity registry. You must enable them manually under `Settings -> Devices & Services -> Entities` to use them.
+- **Force update**: The update check button allows you to trigger an immediate update check outside the regular schedule. **Note:** Most registries (Docker Hub, GitHub) have rate limits. Excessive use of the force update button may result in temporary blocks or errors from the registry.
+- **Supported registries**: Currently, Docker Hub and GitHub Container Registry are supported for update checks.
+
+You can view the update status and details in the sensor attributes. The button entity can be used to trigger a manual check, but please use it responsibly to avoid hitting registry rate limits.
+
+### Status Codes
+
+The update check sensor and button use the following status codes in their state and attributes:
+
+| Status Code | Meaning                                                 |
+| ----------- | ------------------------------------------------------- |
+| 0           | No update available (up to date)                        |
+| 1           | Update available                                        |
+| 2           | Update status not yet checked                           |
+| 401         | Unauthorized (registry credentials required or invalid) |
+| 404         | Image not found on registry                             |
+| 429         | Registry rate limit reached                             |
+| 500         | Registry/internal error                                 |
+
+The sensor attributes also include a human-readable `update_status_description` for each code. For details on errors or rate limits, see the sensor attributes.
+
 # Install integration
 
 This integration is distributed using [HACS](https://hacs.xyz/).
 
-You can find it under "Integrations", named "Portainer"
+You can find it under "Integrations", named "Portainer".
 
 ## Get portainer access token
 
@@ -63,12 +91,14 @@ You can add this integration several times for different portainer instances.
 
 ## Configuration
 
-When setup is done, it is possilbe to cunfigure custom attibutes for each entry via `Configuration -> Integrations -> Portainer -> Configure`.
+After setup, you can configure custom attributes and options for each Portainer entry via `Configuration -> Integrations -> Portainer -> Configure`.
 
-List of supported custom attibutes:
+### Supported options:
 
-- "Health check" - Checks if the container is running correctly by executing a defined command.
-- "Restart policy" - Defines how and when the container restarts after stopping.
+- **Check update**: Enable or disable the update check feature (see above for details).
+- **Update check time**: Set the hour of day for the daily update check.
+- **Health check**: Checks if the container is running correctly by executing a defined command.
+- **Restart policy**: Defines how and when the container restarts after stopping.
 
 ![Configuration](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/options.png)
 
@@ -125,7 +155,7 @@ pre-commit install
 
 ### Code Formatting
 
-This project uses Black for code formatting:
+This project uses Black for code formatting. All code must be Black-formatted before committing. VS Code is configured to auto-format on save if you use the provided settings.
 
 ```bash
 # Format all Python files
@@ -203,13 +233,13 @@ You should now see all 110 tests organized by file and class in the Test Explore
 
 ```
 tests/
-├── test_availability_fix.py      # Entity availability management (12 tests)
-├── test_dynamic_ui_reactive.py   # Dynamic UI behavior (4 tests)
-├── test_pure_logic.py            # Core config flow logic (24 tests)
-├── test_tag_parsing.py           # Docker image parsing (37 tests)
-├── test_ui_field_visibility.py   # UI field visibility (5 tests)
-├── test_unique_id_fix.py         # Unique ID generation (8 tests)
-└── test_update_checks.py         # Update check logic (20 tests)
+├── test_availability_fix.py      # Entity availability management (enabled/disabled states)
+├── test_dynamic_ui_reactive.py   # Dynamic UI behavior
+├── test_pure_logic.py            # Core config flow logic and validation
+├── test_tag_parsing.py           # Docker image name parsing
+├── test_ui_field_visibility.py   # Conditional field display
+├── test_unique_id_fix.py         # Entity unique ID generation
+└── test_update_checks.py         # Container update logic and caching
 ```
 
 ### Development Workflow
@@ -261,16 +291,18 @@ Add breakpoints in VS Code and use the debug configuration for pytest:
 }
 ```
 
+
+
 ### Current Test Coverage
 
-- **Total Tests**: 110
-- **Entity Availability Tests**: 12 (Entity enabled/disabled states)
-- **Dynamic UI Tests**: 4 (Reactive form behavior)
-- **Pure Logic Tests**: 24 (Config flow logic and validation)
-- **Tag Parsing Tests**: 37 (Docker image name parsing)
-- **UI Field Visibility Tests**: 5 (Conditional field display)
-- **Unique ID Tests**: 8 (Entity unique ID generation)
-- **Update Check Tests**: 20 (Container update logic and caching)
+- **Total Tests**: 121
+- **Entity Availability Tests**: Entity enabled/disabled states
+- **Static UI Tests**: Static UI behavior
+- **Pure Logic Tests**: Config flow logic and validation
+- **Tag Parsing Tests**: Docker image name parsing
+- **UI Field Visibility Tests**: Conditional field display
+- **Unique ID Tests**: Entity unique ID generation
+- **Update Check Tests**: Container update logic and caching
 - **Success Rate**: 100% ✅
 
 ## Translation

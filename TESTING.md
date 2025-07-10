@@ -40,7 +40,7 @@ black --check custom_components/ tests/
 ### Run All Tests
 
 ```bash
-# Run all 111 tests (all passing)
+# Run all tests (all passing)
 python -m pytest tests/ -v
 
 # Run with coverage report
@@ -50,107 +50,103 @@ python -m pytest tests/ --cov=custom_components.portainer --cov-report=html
 ### Run Specific Test Categories
 
 ```bash
-# Entity availability tests (12 tests) ✅
+# Entity availability tests
 python -m pytest tests/test_availability_fix.py -v
 
-# Static UI behavior tests (5 tests) ✅
+# Static UI behavior tests
 python -m pytest tests/test_static_ui.py -v
 
-# Pure logic tests (24 tests) ✅
+# Pure logic tests
 python -m pytest tests/test_pure_logic.py -v
 
-# Tag parsing tests (37 tests) ✅
+# Tag parsing tests
 python -m pytest tests/test_tag_parsing.py -v
 
-# UI field visibility tests (5 tests) ✅
+# UI field visibility tests
 python -m pytest tests/test_ui_field_visibility.py -v
 
-# Unique ID generation tests (8 tests) ✅
+# Unique ID generation tests
 python -m pytest tests/test_unique_id_fix.py -v
 
-# Update check tests (20 tests) ✅
+# Update check tests
 python -m pytest tests/test_update_checks.py -v
 ```
 
 ### Run with Coverage
 
 ```bash
-pytest tests/ --cov=custom_components/portainer --cov-report=html
+python -m pytest tests/ --cov=custom_components.portainer --cov-report=html
 ```
 
 ## Test Status
 
-### All Tests Passing (111/111) ✅
+### All Tests Passing
 
 **Current Test Files (All Fully Working):**
 
-- ✅ `test_availability_fix.py` - Entity availability management (12 tests)
-- ✅ `test_static_ui.py` - Static UI behavior (5 tests)
-- ✅ `test_pure_logic.py` - Core config flow logic (24 tests)
-- ✅ `test_tag_parsing.py` - Docker image parsing (37 tests)
-- ✅ `test_ui_field_visibility.py` - UI field visibility (5 tests)
-- ✅ `test_unique_id_fix.py` - Unique ID generation (8 tests)
-- ✅ `test_update_checks.py` - Update check logic (20 tests)
+- `test_availability_fix.py` - Entity availability management
+- `test_static_ui.py` - Static UI behavior
+- `test_pure_logic.py` - Core config flow logic
+- `test_tag_parsing.py` - Docker image parsing
+- `test_ui_field_visibility.py` - UI field visibility
+- `test_unique_id_fix.py` - Unique ID generation
+- `test_update_checks.py` - Update check logic
 
 **Key Improvements Made:**
 
 - All tests use `pytest-homeassistant-custom-component` framework
-- Removed all obsolete and duplicate test files
 - Clean project structure with only essential, working tests
-- Perfect VS Code integration with test discovery
+- Full VS Code integration with test discovery
 - 100% test success rate
 - Comprehensive coverage of all major integration features
 
 ## VS Code Integration
 
-### Setup für VS Code Test Discovery
+### VS Code Test Discovery Setup
 
-1. **Stelle sicher, dass das virtuelle Environment aktiv ist:**
+1. **Ensure the virtual environment is active:**
 
-   - Öffne VS Code Terminal (` Ctrl+Shift+``  `)
-   - Das Prompt sollte `(.venv)` zeigen
-   - Falls nicht: `source .venv/bin/activate`
+   - Open VS Code Terminal (`Ctrl+Shift+\``)
+   - The prompt should show `(.venv)`
+   - If not: `source .venv/bin/activate`
 
-2. **Python Interpreter setzen:**
+2. **Set Python Interpreter:**
 
    - `Ctrl+Shift+P` → "Python: Select Interpreter"
-   - Wähle `./.venv/bin/python`
+   - Choose `./.venv/bin/python`
 
-3. **Tests in VS Code anzeigen:**
+3. **Show tests in VS Code:**
 
-   - Öffne die Test-Ansicht (`Ctrl+Shift+P` → "Test: Focus on Test Explorer View")
-   - Oder klicke auf das Test-Symbol in der Seitenleiste (🧪)
-   - Falls Tests nicht erscheinen: `Ctrl+Shift+P` → "Test: Refresh Tests"
+   - Open the Test Explorer (`Ctrl+Shift+P` → "Test: Focus on Test Explorer View")
+   - Or click the test icon in the sidebar (🧪)
+   - If tests do not appear: `Ctrl+Shift+P` → "Test: Refresh Tests"
 
-4. **Manuelle Test Discovery (falls nötig):**
+4. **Manual test discovery (if needed):**
    ```bash
-   # Im VS Code Terminal ausführen:
    python -m pytest --collect-only tests/ -q
    ```
 
-### VS Code Test-Befehle
+### VS Code Test Commands
 
-- **Alle Tests ausführen:** `Ctrl+Shift+P` → "Test: Run All Tests"
-- **Einzelnen Test ausführen:** Klick auf ▶️ neben dem Test
-- **Test debuggen:** Klick auf 🐛 neben dem Test
-- **Tests aktualisieren:** `Ctrl+Shift+P` → "Test: Refresh Tests"
+- **Run all tests:** `Ctrl+Shift+P` → "Test: Run All Tests"
+- **Run single test:** Click ▶️ next to the test
+- **Debug test:** Click 🐛 next to the test
+- **Refresh tests:** `Ctrl+Shift+P` → "Test: Refresh Tests"
 
 ### Troubleshooting
 
-Wenn Tests in VS Code nicht erscheinen:
+If tests do not appear in VS Code:
 
-1. Prüfe Python Interpreter: `Ctrl+Shift+P` → "Python: Select Interpreter"
-2. Prüfe Test-Konfiguration in `.vscode/settings.json`
-3. Restarte VS Code: `Ctrl+Shift+P` → "Developer: Reload Window"
-4. Manuell testen: `python -m pytest tests/ --tb=short`
+1. Check Python Interpreter: `Ctrl+Shift+P` → "Python: Select Interpreter"
+2. Check test configuration in `.vscode/settings.json`
+3. Restart VS Code: `Ctrl+Shift+P` → "Developer: Reload Window"
+4. Run manually: `python -m pytest tests/ --tb=short`
 
 ## Summary
 
-**Refactoring Complete! ✅**
-
 All unit tests have been successfully refactored to consistently use the Home Assistant test framework (`pytest-homeassistant-custom-component`). The test suite now:
 
-- **116/116 tests passing** (100% success rate)
+- 100% test success rate
 - Uses proper Home Assistant fixtures and mocks
 - Follows pytest-homeassistant-custom-component conventions
 - Has clean imports without sys.path hacks
