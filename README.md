@@ -291,8 +291,6 @@ Add breakpoints in VS Code and use the debug configuration for pytest:
 }
 ```
 
-
-
 ### Current Test Coverage
 
 - **Total Tests**: 121
