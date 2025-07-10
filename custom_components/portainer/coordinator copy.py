@@ -231,141 +231,155 @@ class PortainerCoordinator(DataUpdateCoordinator):
     def get_containers(self) -> None:
         """Get containers from all endpoints."""
         self.raw_data["containers"] = {}
-        registry_checked = False
-        for eid in self.raw_data["endpoints"]:
+        registry_checked = False  # True if at least one real registry request (not cache) was made
+        for eid in list(self.raw_data["endpoints"]):
             if self.raw_data["endpoints"][eid]["Status"] == 1:
-                self.raw_data["containers"][eid] = {}
-                self.raw_data["containers"][eid] = parse_api(
-                    data=self.raw_data["containers"][eid],
-                    source=self.api.query(
-                        f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
-                    ),
-                    key="Id",
-                    vals=[
-                        {"name": "Id", "default": "unknown"},
-                        {"name": "Names", "default": "unknown"},
-                        {"name": "Image", "default": "unknown"},
-                        {"name": "ImageID", "default": "unknown"},
-                        {"name": "State", "default": "unknown"},
-                        {"name": "Ports", "default": "unknown"},
-                        {
-                            "name": "Network",
-                            "source": "HostConfig/NetworkMode",
-                            "default": "unknown",
-                        },
-                        {
-                            "name": "Compose_Stack",
-                            "source": "Labels/com.docker.compose.project",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Service",
-                            "source": "Labels/com.docker.compose.service",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Version",
-                            "source": "Labels/com.docker.compose.version",
-                            "default": "",
-                        },
-                    ],
-                    ensure_vals=[
-                        {"name": "Name", "default": "unknown"},
-                        {"name": "EndpointId", "default": eid},
-                        {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": None},
-                    ],
-                )
-
-                for cid in self.raw_data["containers"][eid]:
-                    self.raw_data["containers"][eid][cid]["Environment"] = (
-                        self.raw_data["endpoints"][eid]["Name"]
-                    )
-                    self.raw_data["containers"][eid][cid]["Name"] = self.raw_data[
-                        "containers"
-                    ][eid][cid]["Names"][0][1:]
-                    self.raw_data["containers"][eid][cid][
-                        "ConfigEntryId"
-                    ] = self.config_entry_id
-                    # avoid shared references given in default
-                    self.raw_data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY] = {}
-
-                # only if some custom feature is enabled
-                if (
-                    self.features[CONF_FEATURE_HEALTH_CHECK]
-                    or self.features[CONF_FEATURE_RESTART_POLICY]
-                    or self.features[CONF_FEATURE_UPDATE_CHECK]
-                ):
+                self.raw_data["containers"][eid] = self._parse_containers_for_endpoint(eid)
+                self._set_container_environment_and_config(eid)
+                if self._custom_features_enabled():
+                    # Patch: track registry_checked if any container update check used registry (not cache)
                     for cid in self.raw_data["containers"][eid]:
-                        self.raw_data["containers"][eid][cid][
-                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                        ] = parse_api(
-                            data={},
-                            source=self.api.query(
-                                f"endpoints/{eid}/docker/containers/{cid}/json",
-                                "get",
-                                {"all": True},
-                            ),
-                            vals=[
-                                {
-                                    "name": "Health_Status",
-                                    "source": "State/Health/Status",
-                                    "default": "unknown",
-                                },
-                                {
-                                    "name": "Restart_Policy",
-                                    "source": "HostConfig/RestartPolicy/Name",
-                                    "default": "unknown",
-                                },
-                            ],
-                            ensure_vals=[
-                                {"name": "Health_Status", "default": "unknown"},
-                                {"name": "Restart_Policy", "default": "unknown"},
-                            ],
-                        )
-                        if self.features[CONF_FEATURE_HEALTH_CHECK]:
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Health_Status"] = self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Health_Status"
-                            ]
-                        if self.features[CONF_FEATURE_RESTART_POLICY]:
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Restart_Policy"] = self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Restart_Policy"
-                            ]
+                        container = self.raw_data["containers"][eid][cid]
                         if self.features[CONF_FEATURE_UPDATE_CHECK]:
-                            # Check if image update is available
-                            update_available = self.check_image_updates(
-                                eid, self.raw_data["containers"][eid][cid]
-                            )
-                            if update_available["registry_used"]:
+                            update_result = self.check_image_updates(eid, container)
+                            if update_result.get("registry_used", False):
                                 registry_checked = True
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Available"] = update_available["status"]
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Description"] = update_available["status_description"]
-                        del self.raw_data["containers"][eid][cid][
-                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                        ]
-
-        # ensure every environment has own set of containers
-        self.raw_data["containers"] = {
-            f"{eid}{cid}": value
-            for eid, t_dict in self.raw_data["containers"].items()
-            for cid, value in t_dict.items()
-        }
-
-        # Only set last_update_check if a real registry request was made (ignore cache)
+        self.raw_data["containers"] = self._flatten_containers_dict(self.raw_data["containers"])
+        # Setze last_update_check nur, wenn wirklich ein Registry-Request gemacht wurde (ignore cache)
         if registry_checked:
             self.last_update_check = datetime.now()
 
+    def _parse_containers_for_endpoint(self, eid: str) -> dict:
+        """Parse containers for a single endpoint."""
+        return parse_api(
+            data={},
+            source=self.api.query(
+                f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
+            ),
+            key="Id",
+            vals=[
+                {"name": "Id", "default": "unknown"},
+                {"name": "Names", "default": "unknown"},
+                {"name": "Image", "default": "unknown"},
+                {"name": "ImageID", "default": "unknown"},
+                {"name": "State", "default": "unknown"},
+                {"name": "Ports", "default": "unknown"},
+                {
+                    "name": "Network",
+                    "source": "HostConfig/NetworkMode",
+                    "default": "unknown",
+                },
+                {
+                    "name": "Compose_Stack",
+                    "source": "Labels/com.docker.compose.project",
+                    "default": "",
+                },
+                {
+                    "name": "Compose_Service",
+                    "source": "Labels/com.docker.compose.service",
+                    "default": "",
+                },
+                {
+                    "name": "Compose_Version",
+                    "source": "Labels/com.docker.compose.version",
+                    "default": "",
+                },
+            ],
+            ensure_vals=[
+                {"name": "Name", "default": "unknown"},
+                {"name": "EndpointId", "default": eid},
+                {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": None},
+            ],
+        )
+
+    def _set_container_environment_and_config(self, eid: str) -> None:
+        """Set environment, name, config entry id, and custom attribute array for containers."""
+        for cid in self.raw_data["containers"][eid]:
+            container = self.raw_data["containers"][eid][cid]
+            container["Environment"] = self.raw_data["endpoints"][eid]["Name"]
+            container["Name"] = container["Names"][0][1:]
+            container["ConfigEntryId"] = self.config_entry_id
+            container[CUSTOM_ATTRIBUTE_ARRAY] = {}
+
+    def _custom_features_enabled(self) -> bool:
+        """Check if any custom feature is enabled."""
+        return (
+            self.features[CONF_FEATURE_HEALTH_CHECK]
+            or self.features[CONF_FEATURE_RESTART_POLICY]
+            or self.features[CONF_FEATURE_UPDATE_CHECK]
+        )
+
+    def _handle_custom_features_for_endpoint(self, eid: str) -> bool:
+        """Handle custom features for all containers in an endpoint. Returns whether a registry request was made."""
+        registry_checked = False
+        for cid in self.raw_data["containers"][eid]:
+            container = self.raw_data["containers"][eid][cid]
+            self._set_container_raw_attributes(eid, cid, container)
+            self._set_custom_feature_attributes(container)
+            if self.features[CONF_FEATURE_UPDATE_CHECK]:
+                update_result = self.check_image_updates(eid, container)
+                if update_result["registry_used"]:
+                    registry_checked = True
+                registry_name = None
+                if update_result["status"] == 404:
+                    image_name = container.get("Image", "")
+                    from .docker_registry import BaseRegistry
+
+                    reg, _, _ = BaseRegistry.parse_image_name(image_name)
+                    registry_name = reg or "docker.io"
+                update_description = update_result[
+                    "status_description"
+                ] or self._get_update_description(
+                    update_result["status"], registry_name
+                )
+                container[CUSTOM_ATTRIBUTE_ARRAY]["Update_Status"] = update_result[
+                    "status"
+                ]
+                container[CUSTOM_ATTRIBUTE_ARRAY][
+                    "Update_Description"
+                ] = update_description
+            del container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
+        return registry_checked
+
+    def _set_container_raw_attributes(
+        self, eid: str, cid: str, container: dict
+    ) -> None:
+        """Set raw attributes for a container."""
+        container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = parse_api(
+            data={},
+            source=self.api.query(
+                f"endpoints/{eid}/docker/containers/{cid}/json",
+                "get",
+                {"all": True},
+            ),
+            vals=[
+                {
+                    "name": "Health_Status",
+                    "source": "State/Health/Status",
+                    "default": "unknown",
+                },
+                {
+                    "name": "Restart_Policy",
+                    "source": "HostConfig/RestartPolicy/Name",
+                    "default": "unknown",
+                },
+            ],
+            ensure_vals=[
+                {"name": "Health_Status", "default": "unknown"},
+                {"name": "Restart_Policy", "default": "unknown"},
+            ],
+        )
+
+    def _set_custom_feature_attributes(self, container: dict) -> None:
+        """Set custom feature attributes for a container."""
+        if self.features[CONF_FEATURE_HEALTH_CHECK]:
+            container[CUSTOM_ATTRIBUTE_ARRAY]["Health_Status"] = container[
+                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+            ]["Health_Status"]
+        if self.features[CONF_FEATURE_RESTART_POLICY]:
+            container[CUSTOM_ATTRIBUTE_ARRAY]["Restart_Policy"] = container[
+                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+            ]["Restart_Policy"]
 
     def _get_update_description(self, status, registry_name=None, translations=None):
         """Return a user-facing description for a given update status code, using translations if available."""
@@ -412,6 +426,11 @@ class PortainerCoordinator(DataUpdateCoordinator):
 
         now = datetime.now()
 
+        # If we've never checked, check now
+        if self.last_update_check is None:
+            _LOGGER.debug("First update check - performing now")
+            return True
+
         # Calculate the next check time (today at configured hour)
         next_check = now.replace(
             hour=self.update_check_hour, minute=0, second=0, microsecond=0
@@ -422,10 +441,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
             next_check += timedelta(days=1)
 
         # Check if we've passed the next check time since last check
-        if self.last_update_check is None:
-            result = now >= next_check
-        else:
-            result = self.last_update_check < next_check and now >= next_check
+        result = self.last_update_check < next_check and now >= next_check
         if result:
             _LOGGER.debug("Scheduled update check time reached")
         return result
@@ -457,7 +473,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
     async def force_update_check(self) -> None:
         """Force an immediate update check for all containers."""
         if not self.features[CONF_FEATURE_UPDATE_CHECK]:
-            _LOGGER.error(
+            _LOGGER.info(
                 "Force update check requested but update check feature is disabled"
             )
             return
@@ -501,6 +517,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
         """Fetch the image manifest from the registry using DockerRegistry. Returns a dict with status, description, manifest, registry_used."""
         translations = getattr(self.hass, "translations", {})
 
+        if image_key in self.cached_registry_responses:
+            return {
+                "status": 200,
+                "status_description": self._get_update_description(
+                    0, None, translations
+                ),
+                "manifest": self.cached_registry_responses[image_key],
+                "registry_used": False,
+            }
+
         arch, os = self._get_arch_and_os(eid, image_key)
         try:
             from .docker_registry import BaseRegistry
@@ -519,13 +545,12 @@ class PortainerCoordinator(DataUpdateCoordinator):
             }
         except Exception as e:
             return self._handle_registry_exception(
-                e, registry, image_key, self._get_update_description, translations
+                e, image_key, self._get_update_description, translations
             )
 
     def _handle_registry_exception(
         self,
         e: Exception,
-        registry: str,
         image_key: str,
         get_status_description,
         translations=None,
@@ -538,29 +563,30 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 if status_code is None:
                     status_code = getattr(e.response, "status_code", None)
             if status_code == 401:
+                registry_name = self._extract_registry_from_image_key(image_key)
                 _LOGGER.warning(
-                    "Unauthorized (HTTP 401) from registry '%s' for image '%s'. Check credentials.",
-                    registry,
+                    "Unauthorized (HTTP 401) from registry for image '%s'. Check credentials.",
                     image_key,
                 )
                 return {
                     "status": 401,
                     "status_description": get_status_description(
-                        401, registry, translations
+                        401, registry_name, translations
                     ),
                     "manifest": {},
                     "registry_used": True,
                 }
             if status_code == 404:
+                registry_name = self._extract_registry_from_image_key(image_key)
                 _LOGGER.info(
                     "Image '%s' not found on registry '%s' (HTTP 404) – treating as not found on registry.",
                     image_key,
-                    registry,
+                    registry_name,
                 )
                 return {
                     "status": 404,
                     "status_description": get_status_description(
-                        404, registry, translations
+                        404, registry_name, translations
                     ),
                     "manifest": {},
                     "registry_used": True,
@@ -593,16 +619,17 @@ class PortainerCoordinator(DataUpdateCoordinator):
                     "registry_used": True,
                 }
         elif isinstance(e, ValueError):
+            registry_name = self._extract_registry_from_image_key(image_key)
             _LOGGER.warning(
                 "No matching manifest found for image '%s' on registry '%s': %s",
                 image_key,
-                registry,
+                registry_name,
                 str(e),
             )
             return {
                 "status": 404,
                 "status_description": get_status_description(
-                    404, registry, translations
+                    404, registry_name, translations
                 ),
                 "manifest": {},
                 "registry_used": True,
@@ -679,13 +706,10 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 image_tag,
                 image_key,
             )
-            
-            # If the registry response is not successful, return the result directly
+
             if result["status"] != 200:
-                self.cached_update_results[container_id] = result
                 return result
-            
-            # If the registry response is successful, compare image IDs
+
             update_available = self._compare_image_ids(
                 result["manifest"],
                 container_data,
@@ -693,20 +717,16 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 container_name,
                 image_name,
             )
-            if update_available:
-                result["status"] = 1
-                translations = getattr(self.hass, "translations", {})
-                result["status_description"] = self._get_update_description(1, None, translations)
-                self.cached_update_results[container_id] = result
-            else:
-                result["status"] = 0
+
+            result["status"] = 1 if update_available else 0
             self.cached_update_results[container_id] = result
+
             return result
         else:
             if container_id in self.cached_update_results:
                 return self.cached_update_results[container_id]
             else:
-                _LOGGER.debug(
+                _LOGGER.info(
                     "Container %s: No cache entry for update check (new container or not yet checked)",
                     container_name,
                 )

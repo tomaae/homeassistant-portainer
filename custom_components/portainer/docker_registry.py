@@ -21,6 +21,72 @@ class DockerRegistryError(Exception):
 
 
 class BaseRegistry(ABC):
+
+    @staticmethod
+    def parse_image_name(image_name: str) -> dict:
+        """Parse a Docker image name into a dict with registry, image_repo, image_tag, image_key."""
+        if not image_name:
+            return {
+                "registry": None,
+                "image_repo": "unknown",
+                "image_tag": "latest",
+                "image_key": "unknown:latest",
+            }
+
+        # Remove digest if present
+        if "@" in image_name:
+            image_name = image_name.split("@", 1)[0]
+        tag = "latest"
+
+        repo, tag = BaseRegistry._split_repo_and_tag(image_name, tag)
+        registry, repo = BaseRegistry._detect_registry(repo)
+
+        repo = BaseRegistry._prepend_library_if_needed(registry, repo)
+
+        image_key = f"{registry}/{repo}:{tag}" if registry else f"{repo}:{tag}"
+
+        return {
+            "registry": registry,
+            "image_repo": repo,
+            "image_tag": tag,
+            "image_key": image_key,
+        }
+
+    @staticmethod
+    def _split_repo_and_tag(image_name: str, default_tag: str):
+        if ":" in image_name:
+            parts = image_name.rsplit(":", 1)
+            if "/" in parts[1]:
+                # e.g. localhost:5000/nginx
+                return image_name, default_tag
+            else:
+                return parts[0], parts[1]
+        else:
+            return image_name, default_tag
+
+    @staticmethod
+    def _detect_registry(repo: str):
+        if "/" in repo:
+            first = repo.split("/")[0]
+            if "." in first or ":" in first:
+                registry = first
+                repo = "/".join(repo.split("/")[1:])
+                return registry, repo
+        return DOCKER_IO, repo
+
+    @staticmethod
+    def _prepend_library_if_needed(registry, repo):
+        dockerio_registries = (
+            None,
+            "docker.io",
+            "registry-1.docker.io",
+            "docker.io:443",
+            "registry-1.docker.io:443",
+        )
+        if registry in dockerio_registries and "/" not in repo:
+            return f"library/{repo}"
+        return repo
+
     """
     Abstract base class for Docker registries.
     """
@@ -61,7 +127,9 @@ class BaseRegistry(ABC):
             headers["Authorization"] = f"Bearer {token}"
         resp = requests.get(url, headers=headers, timeout=10)
         if resp.status_code != 200:
-            raise requests.HTTPError(f"Failed to fetch manifest: {resp.status_code}")
+            raise requests.HTTPError(
+                f"Failed to fetch manifest: {resp.status_code}", response=resp
+            )
         manifest = resp.json()
         if (
             arch
@@ -101,7 +169,8 @@ class BaseRegistry(ABC):
                     return resp.json()
                 else:
                     raise requests.HTTPError(
-                        f"Failed to fetch platform manifest: {resp.status_code}"
+                        f"Failed to fetch platform manifest: {resp.status_code}",
+                        response=resp,
                     )
         raise ValueError(f"No matching platform manifest found for arch={arch} os={os}")
 

@@ -17,11 +17,11 @@ class TestDockerImageTagParsing:
     @pytest.mark.parametrize(
         ("image_name", "expected_registry", "expected_repo", "expected_tag"),
         [
-            # Simple cases
-            ("nginx", None, "nginx", "latest"),
-            ("nginx:latest", None, "nginx", "latest"),
-            ("nginx:1.21", None, "nginx", "1.21"),
-            ("nginx:1.21.3", None, "nginx", "1.21.3"),
+            # Simple cases (Docker Hub official images should return 'library/<name>')
+            ("nginx", None, "library/nginx", "latest"),
+            ("nginx:latest", None, "library/nginx", "latest"),
+            ("nginx:1.21", None, "library/nginx", "1.21"),
+            ("nginx:1.21.3", None, "library/nginx", "1.21.3"),
             # Registry cases
             ("registry.example.com/nginx", "registry.example.com", "nginx", "latest"),
             (
@@ -70,8 +70,8 @@ class TestDockerImageTagParsing:
                 "3.1",
             ),
             # Digest cases (SHA256 should be removed)
-            ("nginx@sha256:abc123def456", None, "nginx", "latest"),
-            ("nginx:latest@sha256:abc123def456", None, "nginx", "latest"),
+            ("nginx@sha256:abc123def456", None, "library/nginx", "latest"),
+            ("nginx:latest@sha256:abc123def456", None, "library/nginx", "latest"),
             (
                 "registry.com/nginx:1.21@sha256:abc123def456",
                 "registry.com",
@@ -83,13 +83,13 @@ class TestDockerImageTagParsing:
             (
                 "image-with-dashes:v1.0-beta",
                 None,
-                "image-with-dashes",
+                "library/image-with-dashes",
                 "v1.0-beta",
             ),
             (
                 "image_with_underscores:v1.0_stable",
                 None,
-                "image_with_underscores",
+                "library/image_with_underscores",
                 "v1.0_stable",
             ),
             (
@@ -112,29 +112,35 @@ class TestDockerImageTagParsing:
                 "v1.3.1",
             ),
             # Complex version tags
-            ("myapp:2.1.0-rc.1", None, "myapp", "2.1.0-rc.1"),
-            ("myapp:v2.1.0_alpha", None, "myapp", "v2.1.0_alpha"),
-            ("myapp:snapshot-20231201", None, "myapp", "snapshot-20231201"),
+            ("myapp:2.1.0-rc.1", None, "library/myapp", "2.1.0-rc.1"),
+            ("myapp:v2.1.0_alpha", None, "library/myapp", "v2.1.0_alpha"),
+            ("myapp:snapshot-20231201", None, "library/myapp", "snapshot-20231201"),
         ],
     )
     def test_parse_image_name(
-        self, coordinator, image_name, expected_registry, expected_repo, expected_tag
+        self, image_name, expected_registry, expected_repo, expected_tag
     ):
         """Test parsing various Docker image name formats."""
-        registry, repo, tag = coordinator._parse_image_name(image_name)
-        assert registry == expected_registry
-        assert repo == expected_repo
-        assert tag == expected_tag
+        from custom_components.portainer.docker_registry import BaseRegistry
 
-    def test_parse_image_name_with_none_input(self, coordinator):
+        result = BaseRegistry.parse_image_name(image_name)
+        assert result["registry"] == expected_registry
+        assert result["image_repo"] == expected_repo
+        assert result["image_tag"] == expected_tag
+
+    def test_parse_image_name_with_none_input(self):
         """Test parsing with None input."""
-        registry, repo, tag = coordinator._parse_image_name(None)
-        assert registry is None
-        assert repo == "unknown"
-        assert tag == "latest"
+        from custom_components.portainer.docker_registry import BaseRegistry
 
-    def test_parse_image_name_registry_port_edge_cases(self, coordinator):
+        result = BaseRegistry.parse_image_name(None)
+        assert result["registry"] is None
+        assert result["image_repo"] == "unknown"
+        assert result["image_tag"] == "latest"
+
+    def test_parse_image_name_registry_port_edge_cases(self):
         """Test edge cases for registry port parsing."""
+        from custom_components.portainer.docker_registry import BaseRegistry
+
         # Test various combinations of registries with ports
         test_cases = [
             ("localhost:5000/app", "localhost:5000", "app", "latest"),
@@ -148,38 +154,73 @@ class TestDockerImageTagParsing:
         ]
 
         for image_name, expected_registry, expected_repo, expected_tag in test_cases:
-            registry, repo, tag = coordinator._parse_image_name(image_name)
-            assert registry == expected_registry, f"Failed for {image_name}"
-            assert repo == expected_repo, f"Failed for {image_name}"
-            assert tag == expected_tag, f"Failed for {image_name}"
+            result = BaseRegistry.parse_image_name(image_name)
+            assert result["registry"] == expected_registry, f"Failed for {image_name}"
+            assert result["image_repo"] == expected_repo, f"Failed for {image_name}"
+            assert result["image_tag"] == expected_tag, f"Failed for {image_name}"
 
-    def test_parse_image_name_digest_removal(self, coordinator):
+    def test_parse_image_name_digest_removal(self):
         """Test that SHA256 digests are properly removed from image names."""
+        from custom_components.portainer.docker_registry import BaseRegistry
+
         test_cases = [
-            ("nginx@sha256:abc123", None, "nginx", "latest"),
-            ("nginx:1.21@sha256:def456", None, "nginx", "1.21"),
+            ("nginx@sha256:abc123", None, "library/nginx", "latest"),
+            ("nginx:1.21@sha256:def456", None, "library/nginx", "1.21"),
             ("registry.com/app:v1.0@sha256:789xyz", "registry.com", "app", "v1.0"),
         ]
 
         for image_name, expected_registry, expected_repo, expected_tag in test_cases:
-            registry, repo, tag = coordinator._parse_image_name(image_name)
-            assert registry == expected_registry, f"Failed for {image_name}"
-            assert repo == expected_repo, f"Failed for {image_name}"
-            assert tag == expected_tag, f"Failed for {image_name}"
+            result = BaseRegistry.parse_image_name(image_name)
+            assert result["registry"] == expected_registry, f"Failed for {image_name}"
+            assert result["image_repo"] == expected_repo, f"Failed for {image_name}"
+            assert result["image_tag"] == expected_tag, f"Failed for {image_name}"
 
-    def test_parse_image_name_numeric_tags(self, coordinator):
+    def test_parse_image_name_numeric_tags(self):
         """Test parsing of purely numeric tags."""
+        from custom_components.portainer.docker_registry import BaseRegistry
+
         test_cases = [
-            ("nginx:123", None, "nginx", "123"),
-            ("app:2023", None, "app", "2023"),
-            ("service:20240101", None, "service", "20240101"),
+            ("nginx:123", None, "library/nginx", "123"),
+            ("app:2023", None, "library/app", "2023"),
+            ("service:20240101", None, "library/service", "20240101"),
         ]
 
         for image_name, expected_registry, expected_repo, expected_tag in test_cases:
-            registry, repo, tag = coordinator._parse_image_name(image_name)
-            assert registry == expected_registry, f"Failed for {image_name}"
-            assert repo == expected_repo, f"Failed for {image_name}"
-            assert tag == expected_tag, f"Failed for {image_name}"
+            result = BaseRegistry.parse_image_name(image_name)
+            assert result["registry"] == expected_registry, f"Failed for {image_name}"
+            assert result["image_repo"] == expected_repo, f"Failed for {image_name}"
+            assert result["image_tag"] == expected_tag, f"Failed for {image_name}"
+
+    @pytest.mark.parametrize(
+        "image_name,expected_registry,expected_repo,expected_tag",
+        [
+            ("docker.io/nginx:latest", "docker.io", "library/nginx", "latest"),
+            ("docker.io/library/nginx:latest", "docker.io", "library/nginx", "latest"),
+            (
+                "registry-1.docker.io/nginx:latest",
+                "registry-1.docker.io",
+                "library/nginx",
+                "latest",
+            ),
+            ("docker.io:443/nginx:latest", "docker.io:443", "library/nginx", "latest"),
+            (
+                "docker.io:443/library/nginx:latest",
+                "docker.io:443",
+                "library/nginx",
+                "latest",
+            ),
+        ],
+    )
+    def test_parse_image_name_dockerio_variants(
+        self, image_name, expected_registry, expected_repo, expected_tag
+    ):
+        """Test parsing of docker.io and registry-1.docker.io variants."""
+        from custom_components.portainer.docker_registry import BaseRegistry
+
+        result = BaseRegistry.parse_image_name(image_name)
+        assert result["registry"] == expected_registry
+        assert result["image_repo"] == expected_repo
+        assert result["image_tag"] == expected_tag
 
 
 class TestImageIdNormalization:

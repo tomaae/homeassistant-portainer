@@ -44,6 +44,24 @@
       "update_check_disabled": "Update check time is only used when update checking is enabled."
     }
   },
+  "entity": {
+    "sensor": {
+      "update_check_status": {
+        "name": "Container Update Check",
+        "state": {
+          "never": "Never scheduled",
+          "disabled": "Disabled",
+          "update_status_0": "No update available.",
+          "update_status_1": "Update available!",
+          "update_status_2": "Update status not yet checked.",
+          "update_status_401": "Registry authentication failed for {registry}.",
+          "update_status_404": "Image not found on registry ({registry}).",
+          "update_status_429": "Registry rate limit reached.",
+          "update_status_500": "Registry/internal error."
+        }
+      }
+    }
+  },
   "services": {
     "force_update_check": {
       "name": "Force Update Check",

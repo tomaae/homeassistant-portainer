@@ -50,7 +50,14 @@
         "name": "Container Update Check",
         "state": {
           "never": "Never scheduled",
-          "disabled": "Disabled"
+          "disabled": "Disabled",
+          "update_status_0": "No update available.",
+          "update_status_1": "Update available!",
+          "update_status_2": "Update status not yet checked.",
+          "update_status_401": "Registry authentication failed for {registry}.",
+          "update_status_404": "Image not found on registry ({registry}).",
+          "update_status_429": "Registry rate limit reached.",
+          "update_status_500": "Registry/internal error."
         }
       }
     }

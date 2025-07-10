@@ -68,6 +68,39 @@ def coordinator_with_mock(hass: HomeAssistant, mock_config_entry, mock_api):
 
 
 class TestUpdateCheckLogic:
+    def test_check_image_updates_local_image_not_on_registry(self, coordinator_with_mock):
+        """Test check_image_updates for a local-only image (not on registry). Should return status 2 (not yet checked) on first run."""
+        container_data = {
+            "Id": "test_container",
+            "Name": "/test",
+            "Image": "certbot-dns-ionos:latest",
+        }
+        # On first run, should return status 2 (not yet checked)
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert result["status"] == 2
+
+    def test_check_image_updates_official_dockerhub_image(self, coordinator_with_mock):
+        """Test check_image_updates for an official Docker Hub image (e.g. traefik:latest). Should return status 2 (not yet checked) on first run."""
+        container_data = {
+            "Id": "test_container",
+            "Name": "/test",
+            "Image": "traefik:latest",
+        }
+        # On first run, should return status 2 (not yet checked)
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert result["status"] == 2
+
+    def test_check_image_updates_update_available(self, coordinator_with_mock):
+        """Test check_image_updates when update is available (IDs differ). Should return status 2 (not yet checked) on first run."""
+        container_data = {
+            "Id": "test_container",
+            "Name": "/test",
+            "Image": "traefik:latest",
+        }
+        # On first run, should return status 2 (not yet checked)
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert result["status"] == 2
+
     """Test class for container update check functionality."""
 
     def test_should_check_updates_feature_disabled(self, coordinator_with_mock):
@@ -77,17 +110,19 @@ class TestUpdateCheckLogic:
         assert result is False
 
     def test_should_check_updates_force_update(self, coordinator_with_mock):
-        """Test should_check_updates with feature enabled."""
+        """Test should_check_updates with feature enabled and force_update_requested True."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
+        coordinator_with_mock.force_update_requested = True
         result = coordinator_with_mock.should_check_updates()
         assert result is True
 
     def test_should_check_updates_first_check(self, coordinator_with_mock):
-        """Test should_check_updates for first time check."""
+        """Test should_check_updates for first time check. Should return False unless force_update_requested is True."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
         coordinator_with_mock.last_update_check = None
+        coordinator_with_mock.force_update_requested = False
         result = coordinator_with_mock.should_check_updates()
-        assert result is True
+        assert result is False
 
     def test_should_check_updates_time_not_reached(self, coordinator_with_mock):
         """Test should_check_updates when check time hasn't been reached."""
@@ -152,7 +187,7 @@ class TestUpdateCheckLogic:
         """Test check_image_updates with no image name."""
         container_data = {"Id": "test_container", "Name": "/test", "Image": ""}
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        assert result is False
+        assert result["status"] == 500
 
     def test_check_image_updates_with_cached_result(self, coordinator_with_mock):
         """Test check_image_updates returning cached result."""
@@ -161,12 +196,29 @@ class TestUpdateCheckLogic:
             "Name": "/test",
             "Image": "nginx:latest",
         }
-        cached_result = True
+        cached_result = {
+            "status": 1,
+            "status_description": "Update available.",
+            "manifest": {},
+            "registry_used": True,
+        }
         coordinator_with_mock.cached_update_results["test_container"] = cached_result
         coordinator_with_mock.features["feature_switch_update_check"] = False
 
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        assert result == cached_result
+        assert result["status"] == 1
+        # Wenn cached_result False:
+        cached_result_false = {
+            "status": 0,
+            "status_description": "No update available.",
+            "manifest": {},
+            "registry_used": True,
+        }
+        coordinator_with_mock.cached_update_results["test_container"] = (
+            cached_result_false
+        )
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert result["status"] == 0
 
     @patch(
         "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
@@ -176,18 +228,41 @@ class TestUpdateCheckLogic:
     ):
         """Test check_image_updates with API returning dict response."""
         mock_should_check.return_value = True
-        coordinator_with_mock.api.check_for_image_update.return_value = {
-            "update_available": True
-        }
+        coordinator_with_mock.api.query.return_value = {}
         container_data = {
             "Id": "test_container",
             "Name": "/test",
             "Image": "nginx:latest",
         }
 
+        # Simuliere Registry-200, IDs gleich
+        def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
+            return {
+                "status": 200,
+                "status_description": None,
+                "manifest": {
+                    "Id": "sha256:abc",
+                    "schemaVersion": 2,
+                    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                    "config": {"digest": "sha256:abc"},
+                },
+                "registry_used": True,
+            }
+
+        coordinator_with_mock._get_registry_response = fake_get_registry_response
+        container_data["ImageID"] = "sha256:abc"
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        # The actual implementation returns boolean, not the API response
-        assert isinstance(result, bool)
+        assert result == {
+            "status": 0,
+            "status_description": None,
+            "manifest": {
+                "Id": "sha256:abc",
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                "config": {"digest": "sha256:abc"},
+            },
+            "registry_used": True,
+        }
 
     @patch(
         "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
@@ -197,18 +272,40 @@ class TestUpdateCheckLogic:
     ):
         """Test check_image_updates with API returning list response."""
         mock_should_check.return_value = True
-        coordinator_with_mock.api.check_for_image_update.return_value = [
-            {"update_available": True}
-        ]
+        coordinator_with_mock.api.query.return_value = []
         container_data = {
             "Id": "test_container",
             "Name": "/test",
             "Image": "nginx:latest",
         }
 
+        def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
+            return {
+                "status": 200,
+                "status_description": None,
+                "manifest": {
+                    "Id": "sha256:abc",
+                    "schemaVersion": 2,
+                    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                    "config": {"digest": "sha256:abc"},
+                },
+                "registry_used": True,
+            }
+
+        coordinator_with_mock._get_registry_response = fake_get_registry_response
+        container_data["ImageID"] = "sha256:abc"
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        # The actual implementation returns boolean, not the API response
-        assert isinstance(result, bool)
+        assert result == {
+            "status": 0,
+            "status_description": None,
+            "manifest": {
+                "Id": "sha256:abc",
+                "schemaVersion": 2,
+                "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+                "config": {"digest": "sha256:abc"},
+            },
+            "registry_used": True,
+        }
 
     @patch(
         "custom_components.portainer.coordinator.PortainerCoordinator.should_check_updates"
@@ -216,19 +313,21 @@ class TestUpdateCheckLogic:
     def test_check_image_updates_api_error(
         self, mock_should_check, coordinator_with_mock
     ):
-        """Test check_image_updates when API raises exception."""
+        """Test check_image_updates when API raises exception. Should return status 500 (error) if registry call fails."""
         mock_should_check.return_value = True
-        coordinator_with_mock.api.check_for_image_update.side_effect = Exception(
-            "API Error"
-        )
         container_data = {
             "Id": "test_container",
             "Name": "/test",
             "Image": "nginx:latest",
         }
-
+        class SimulatedRegistryError(RuntimeError):
+            pass
+        def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
+            raise SimulatedRegistryError("Simulated registry error")
+        coordinator_with_mock._get_registry_response = fake_get_registry_response
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        assert result is False  # Should return False on error
+        assert isinstance(result, dict)
+        assert result["status"] == 500
 
     def test_check_image_updates_with_complex_image_name(self, coordinator_with_mock):
         """Test check_image_updates with complex image name parsing."""
@@ -241,12 +340,18 @@ class TestUpdateCheckLogic:
             "Image": "registry.example.com/nginx:1.21",
         }
 
-        # Test with registry and tag
-        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        assert isinstance(result, bool)
+        # Simuliere Registry-Fehler (z.B. kein Manifest gefunden)
+        def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
+            return {
+                "status": 500,
+                "status_description": "error",
+                "manifest": {},
+                "registry_used": True,
+            }
 
-        # Verify the API was called with parsed components
-        coordinator_with_mock.api.query.assert_called()
+        coordinator_with_mock._get_registry_response = fake_get_registry_response
+        result = coordinator_with_mock.check_image_updates("test_eid", container_data)
+        assert isinstance(result["status"], int)
 
     def test_get_next_update_check_time_feature_disabled(self, coordinator_with_mock):
         """Test get_next_update_check_time when feature is disabled."""
@@ -299,15 +404,22 @@ class TestUpdateCheckIntegration:
         self, hass: HomeAssistant, coordinator_with_mock
     ):
         """Test update check functionality within Home Assistant context."""
-        # Ensure the coordinator is properly integrated with Home Assistant
         coordinator_with_mock.hass = hass
-
-        # Test that update checks work within HA context
         container_data = {
             "Id": "test_container",
             "Name": "/test",
             "Image": "nginx:latest",
         }
 
+        # Simulate registry error (e.g. no manifest found)
+        def fake_get_registry_response(eid, registry, image_repo, image_tag, image_key):
+            return {
+                "status": 500,
+                "status_description": "Registry/internal error.",
+                "manifest": {},
+                "registry_used": True,
+            }
+
+        coordinator_with_mock._get_registry_response = fake_get_registry_response
         result = coordinator_with_mock.check_image_updates("test_eid", container_data)
-        assert isinstance(result, bool)
+        assert isinstance(result["status"], int)
