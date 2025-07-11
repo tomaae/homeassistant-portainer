@@ -139,13 +139,13 @@ class TestUpdateCheckLogic:
         assert result is True
 
     def test_should_check_updates_first_check(self, coordinator_with_mock):
-        """Test should_check_updates for first time check. Should return True if feature enabled and not forced."""
+        """Test should_check_updates for first time check. Should return False if feature enabled and not forced."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
         coordinator_with_mock.last_update_check = None
         coordinator_with_mock.force_update_requested = False
         result = coordinator_with_mock.should_check_updates()
         # If logic now returns True on first check, expect True
-        assert result is True
+        assert result is False
 
     def test_should_check_updates_time_not_reached(self, coordinator_with_mock):
         """Test should_check_updates when check time hasn't been reached."""

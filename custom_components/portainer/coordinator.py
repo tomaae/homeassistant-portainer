@@ -256,141 +256,134 @@ class PortainerCoordinator(DataUpdateCoordinator):
         """Get containers from all endpoints."""
         self.raw_data["containers"] = {}
         registry_checked = False
+
         for eid in self.raw_data["endpoints"]:
-            if self.raw_data["endpoints"][eid]["Status"] == 1:
-                self.raw_data["containers"][eid] = {}
-                self.raw_data["containers"][eid] = parse_api(
-                    data=self.raw_data["containers"][eid],
-                    source=self.api.query(
-                        f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
-                    ),
-                    key="Id",
-                    vals=[
-                        {"name": "Id", "default": "unknown"},
-                        {"name": "Names", "default": "unknown"},
-                        {"name": "Image", "default": "unknown"},
-                        {"name": "ImageID", "default": "unknown"},
-                        {"name": "State", "default": "unknown"},
-                        {"name": "Ports", "default": "unknown"},
-                        {
-                            "name": "Network",
-                            "source": "HostConfig/NetworkMode",
-                            "default": "unknown",
-                        },
-                        {
-                            "name": "Compose_Stack",
-                            "source": "Labels/com.docker.compose.project",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Service",
-                            "source": "Labels/com.docker.compose.service",
-                            "default": "",
-                        },
-                        {
-                            "name": "Compose_Version",
-                            "source": "Labels/com.docker.compose.version",
-                            "default": "",
-                        },
-                    ],
-                    ensure_vals=[
-                        {"name": "Name", "default": "unknown"},
-                        {"name": "EndpointId", "default": eid},
-                        {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": None},
-                    ],
+            if self.raw_data["endpoints"][eid]["Status"] != 1:
+                continue
+            self.raw_data["containers"][eid] = self._parse_containers_for_endpoint(eid)
+            self._set_container_environment_and_config(eid)
+            if self._custom_features_enabled():
+                registry_checked = self._handle_custom_features_for_endpoint(
+                    eid, registry_checked
                 )
 
-                for cid in self.raw_data["containers"][eid]:
-                    self.raw_data["containers"][eid][cid]["Environment"] = (
-                        self.raw_data["endpoints"][eid]["Name"]
-                    )
-                    self.raw_data["containers"][eid][cid]["Name"] = self.raw_data[
-                        "containers"
-                    ][eid][cid]["Names"][0][1:]
-                    self.raw_data["containers"][eid][cid][
-                        "ConfigEntryId"
-                    ] = self.config_entry_id
-                    # avoid shared references given in default
-                    self.raw_data["containers"][eid][cid][CUSTOM_ATTRIBUTE_ARRAY] = {}
+        self.raw_data["containers"] = self._flatten_containers_dict(
+            self.raw_data["containers"]
+        )
 
-                # only if some custom feature is enabled
-                if (
-                    self.features[CONF_FEATURE_HEALTH_CHECK]
-                    or self.features[CONF_FEATURE_RESTART_POLICY]
-                    or self.features[CONF_FEATURE_UPDATE_CHECK]
-                ):
-                    for cid in self.raw_data["containers"][eid]:
-                        self.raw_data["containers"][eid][cid][
-                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                        ] = parse_api(
-                            data={},
-                            source=self.api.query(
-                                f"endpoints/{eid}/docker/containers/{cid}/json",
-                                "get",
-                                {"all": True},
-                            ),
-                            vals=[
-                                {
-                                    "name": "Health_Status",
-                                    "source": "State/Health/Status",
-                                    "default": "unknown",
-                                },
-                                {
-                                    "name": "Restart_Policy",
-                                    "source": "HostConfig/RestartPolicy/Name",
-                                    "default": "unknown",
-                                },
-                            ],
-                            ensure_vals=[
-                                {"name": "Health_Status", "default": "unknown"},
-                                {"name": "Restart_Policy", "default": "unknown"},
-                            ],
-                        )
-                        if self.features[CONF_FEATURE_HEALTH_CHECK]:
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Health_Status"] = self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Health_Status"
-                            ]
-                        if self.features[CONF_FEATURE_RESTART_POLICY]:
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Restart_Policy"] = self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                            ][
-                                "Restart_Policy"
-                            ]
-                        if self.features[CONF_FEATURE_UPDATE_CHECK]:
-                            # Check if image update is available
-                            update_available = self.check_image_updates(
-                                eid, self.raw_data["containers"][eid][cid]
-                            )
-                            if update_available["registry_used"]:
-                                registry_checked = True
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Available"] = update_available["status"]
-                            self.raw_data["containers"][eid][cid][
-                                CUSTOM_ATTRIBUTE_ARRAY
-                            ]["Update_Description"] = update_available[
-                                "status_description"
-                            ]
-                        del self.raw_data["containers"][eid][cid][
-                            CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
-                        ]
-
-        # ensure every environment has own set of containers
-        self.raw_data["containers"] = {
-            f"{eid}{cid}": value
-            for eid, t_dict in self.raw_data["containers"].items()
-            for cid, value in t_dict.items()
-        }
-
-        # Only set last_update_check if a real registry request was made (ignore cache)
         if registry_checked:
             self.last_update_check = dt_util.now()
+
+    def _parse_containers_for_endpoint(self, eid: str) -> dict:
+        """Parse containers for a given endpoint."""
+        return parse_api(
+            data={},
+            source=self.api.query(
+                f"endpoints/{eid}/docker/containers/json", "get", {"all": True}
+            ),
+            key="Id",
+            vals=[
+                {"name": "Id", "default": "unknown"},
+                {"name": "Names", "default": "unknown"},
+                {"name": "Image", "default": "unknown"},
+                {"name": "ImageID", "default": "unknown"},
+                {"name": "State", "default": "unknown"},
+                {"name": "Ports", "default": "unknown"},
+                {
+                    "name": "Network",
+                    "source": "HostConfig/NetworkMode",
+                    "default": "unknown",
+                },
+                {
+                    "name": "Compose_Stack",
+                    "source": "Labels/com.docker.compose.project",
+                    "default": "",
+                },
+                {
+                    "name": "Compose_Service",
+                    "source": "Labels/com.docker.compose.service",
+                    "default": "",
+                },
+                {
+                    "name": "Compose_Version",
+                    "source": "Labels/com.docker.compose.version",
+                    "default": "",
+                },
+            ],
+            ensure_vals=[
+                {"name": "Name", "default": "unknown"},
+                {"name": "EndpointId", "default": eid},
+                {"name": CUSTOM_ATTRIBUTE_ARRAY, "default": None},
+            ],
+        )
+
+    def _set_container_environment_and_config(self, eid: str) -> None:
+        """Set environment and config for containers in an endpoint."""
+        for cid in self.raw_data["containers"][eid]:
+            container = self.raw_data["containers"][eid][cid]
+            container["Environment"] = self.raw_data["endpoints"][eid]["Name"]
+            container["Name"] = container["Names"][0][1:]
+            container["ConfigEntryId"] = self.config_entry_id
+            container[CUSTOM_ATTRIBUTE_ARRAY] = {}
+
+    def _custom_features_enabled(self) -> bool:
+        """Check if any custom feature is enabled."""
+        return (
+            self.features[CONF_FEATURE_HEALTH_CHECK]
+            or self.features[CONF_FEATURE_RESTART_POLICY]
+            or self.features[CONF_FEATURE_UPDATE_CHECK]
+        )
+
+    def _handle_custom_features_for_endpoint(
+        self, eid: str, registry_checked: bool
+    ) -> bool:
+        """Handle custom features for containers in an endpoint."""
+        for cid in self.raw_data["containers"][eid]:
+            container = self.raw_data["containers"][eid][cid]
+            container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"] = parse_api(
+                data={},
+                source=self.api.query(
+                    f"endpoints/{eid}/docker/containers/{cid}/json",
+                    "get",
+                    {"all": True},
+                ),
+                vals=[
+                    {
+                        "name": "Health_Status",
+                        "source": "State/Health/Status",
+                        "default": "unknown",
+                    },
+                    {
+                        "name": "Restart_Policy",
+                        "source": "HostConfig/RestartPolicy/Name",
+                        "default": "unknown",
+                    },
+                ],
+                ensure_vals=[
+                    {"name": "Health_Status", "default": "unknown"},
+                    {"name": "Restart_Policy", "default": "unknown"},
+                ],
+            )
+            if self.features[CONF_FEATURE_HEALTH_CHECK]:
+                container[CUSTOM_ATTRIBUTE_ARRAY]["Health_Status"] = container[
+                    CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                ]["Health_Status"]
+            if self.features[CONF_FEATURE_RESTART_POLICY]:
+                container[CUSTOM_ATTRIBUTE_ARRAY]["Restart_Policy"] = container[
+                    CUSTOM_ATTRIBUTE_ARRAY + "_Raw"
+                ]["Restart_Policy"]
+            if self.features[CONF_FEATURE_UPDATE_CHECK]:
+                update_available = self.check_image_updates(eid, container)
+                if update_available["registry_used"]:
+                    registry_checked = True
+                container[CUSTOM_ATTRIBUTE_ARRAY]["Update_Available"] = (
+                    update_available["status"]
+                )
+                container[CUSTOM_ATTRIBUTE_ARRAY]["Update_Description"] = (
+                    update_available["status_description"]
+                )
+            del container[CUSTOM_ATTRIBUTE_ARRAY + "_Raw"]
+        return registry_checked
 
     def _get_update_description(self, status, registry_name=None, translations=None):
         """Return a user-facing description for a given update status code, using translations if available."""
@@ -404,7 +397,7 @@ class PortainerCoordinator(DataUpdateCoordinator):
         ):
             text = translations[TRANSLATION_UPDATE_CHECK_STATUS_STATE][desc_key]
             # If the translation text contains {registry}, replace it if registry_name is provided
-            if "{registry}" in text and registry_name:
+            if "{registry}" in text and registry_name:  # NOSONAR
                 return text.replace("{registry}", registry_name)
             return text
         # Fallback default
@@ -556,73 +549,50 @@ class PortainerCoordinator(DataUpdateCoordinator):
         translations=None,
     ) -> dict:
         """Handle exceptions from registry requests. Returns dict for _get_registry_response."""
-        status_code = None
         if isinstance(e, requests.HTTPError):
-            if hasattr(e, "response") and e.response is not None:
-                status_code = getattr(e.response, "status", None)
-                if status_code is None:
-                    status_code = getattr(e.response, "status_code", None)
-            if status_code == 401:
-                _LOGGER.warning(
-                    "Unauthorized (HTTP 401) from registry '%s' for image '%s'. Check credentials.",
-                    registry,
-                    image_key,
-                )
-                return {
-                    "status": 401,
-                    "status_description": get_status_description(
-                        401, registry, translations
-                    ),
-                    "manifest": {},
-                    "registry_used": True,
-                }
-            if status_code == 404:
-                _LOGGER.info(
-                    "Image '%s' not found on registry '%s' (HTTP 404) – treating as not found on registry.",
-                    image_key,
-                    registry,
-                )
-                return {
-                    "status": 404,
-                    "status_description": get_status_description(
-                        404, registry, translations
-                    ),
-                    "manifest": {},
-                    "registry_used": True,
-                }
-            elif status_code == 429:
-                _LOGGER.warning(
-                    "Rate limit (HTTP 429) from registry for image '%s'. Handling gracefully.",
-                    image_key,
-                )
-                return {
-                    "status": 429,
-                    "status_description": get_status_description(
-                        429, None, translations
-                    ),
-                    "manifest": {},
-                    "registry_used": True,
-                }
-            else:
-                _LOGGER.warning(
-                    "Failed to fetch registry data for image '%s': %s",
-                    image_key,
-                    str(e),
-                )
-                return {
-                    "status": status_code or 500,
-                    "status_description": get_status_description(
-                        status_code or 500, None, translations
-                    ),
-                    "manifest": {},
-                    "registry_used": True,
-                }
+            return self._handle_http_error(
+                e, registry, image_key, get_status_description, translations
+            )
         elif isinstance(e, ValueError):
+            return self._handle_value_error(
+                e, registry, image_key, get_status_description, translations
+            )
+        elif isinstance(e, DockerRegistryError):
+            return self._handle_docker_registry_error(
+                e, image_key, get_status_description, translations
+            )
+        else:
+            return self._handle_unexpected_error(
+                e, image_key, get_status_description, translations
+            )
+
+    def _handle_http_error(
+        self, e, registry, image_key, get_status_description, translations
+    ):
+        status_code = None
+        if hasattr(e, "response") and e.response is not None:
+            status_code = getattr(e.response, "status", None)
+            if status_code is None:
+                status_code = getattr(e.response, "status_code", None)
+        if status_code == 401:
             _LOGGER.warning(
-                "No matching manifest found for image '%s' on registry '%s': %s",
+                "Unauthorized (HTTP 401) from registry '%s' for image '%s'. Check credentials.",
+                registry,
+                image_key,
+            )
+            return {
+                "status": 401,
+                "status_description": get_status_description(
+                    401, registry, translations
+                ),
+                "manifest": {},
+                "registry_used": True,
+            }
+        if status_code == 404:
+            _LOGGER.info(
+                "Image '%s' not found on registry '%s' (HTTP 404) – treating as not found on registry.",
                 image_key,
                 registry,
-                str(e),
             )
             return {
                 "status": 404,
@@ -632,28 +602,72 @@ class PortainerCoordinator(DataUpdateCoordinator):
                 "manifest": {},
                 "registry_used": True,
             }
-        elif isinstance(e, DockerRegistryError):
+        if status_code == 429:
             _LOGGER.warning(
-                "DockerRegistry error for image '%s': %s", image_key, str(e)
-            )
-            return {
-                "status": 500,
-                "status_description": get_status_description(500, None, translations),
-                "manifest": {},
-                "registry_used": True,
-            }
-        else:
-            _LOGGER.warning(
-                "Unexpected error fetching registry data for image '%s': %s",
+                "Rate limit (HTTP 429) from registry for image '%s'. Handling gracefully.",
                 image_key,
-                str(e),
             )
             return {
-                "status": 500,
-                "status_description": get_status_description(500, None, translations),
+                "status": 429,
+                "status_description": get_status_description(429, None, translations),
                 "manifest": {},
                 "registry_used": True,
             }
+        _LOGGER.warning(
+            "Failed to fetch registry data for image '%s': %s",
+            image_key,
+            str(e),
+        )
+        return {
+            "status": status_code or 500,
+            "status_description": get_status_description(
+                status_code or 500, None, translations
+            ),
+            "manifest": {},
+            "registry_used": True,
+        }
+
+    def _handle_value_error(
+        self, e, registry, image_key, get_status_description, translations
+    ):
+        _LOGGER.warning(
+            "No matching manifest found for image '%s' on registry '%s': %s",
+            image_key,
+            registry,
+            str(e),
+        )
+        return {
+            "status": 404,
+            "status_description": get_status_description(404, registry, translations),
+            "manifest": {},
+            "registry_used": True,
+        }
+
+    def _handle_docker_registry_error(
+        self, e, image_key, get_status_description, translations
+    ):
+        _LOGGER.warning("DockerRegistry error for image '%s': %s", image_key, str(e))
+        return {
+            "status": 500,
+            "status_description": get_status_description(500, None, translations),
+            "manifest": {},
+            "registry_used": True,
+        }
+
+    def _handle_unexpected_error(
+        self, e, image_key, get_status_description, translations
+    ):
+        _LOGGER.warning(
+            "Unexpected error fetching registry data for image '%s': %s",
+            image_key,
+            str(e),
+        )
+        return {
+            "status": 500,
+            "status_description": get_status_description(500, None, translations),
+            "manifest": {},
+            "registry_used": True,
+        }
 
     def check_image_updates(self, eid: str, container_data: dict) -> dict:
         """Check if an image update is available for a container. Returns dict with status, description, manifest, registry_used."""
