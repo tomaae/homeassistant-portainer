@@ -21,6 +21,8 @@ Features:
 
 - List Endpoints
 - List Containers
+- Check registry, for container updates
+  -  Public repos on docker and github are currently supported
 
 # Features
 
@@ -34,7 +36,8 @@ List of Portainer endpoints.
 
 List of containers.
 
-![Containers](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/containers.png)
+<img width="544" height="838" alt="image" src="https://github.com/user-attachments/assets/e9074323-b551-4a9b-beed-116f4bffb6de" />
+
 
 ## Update Check Feature
 
@@ -95,12 +98,13 @@ After setup, you can configure custom attributes and options for each Portainer 
 
 ### Supported options:
 
-- **Check update**: Enable or disable the update check feature (see above for details).
-- **Update check time**: Set the hour of day for the daily update check.
 - **Health check**: Checks if the container is running correctly by executing a defined command.
 - **Restart policy**: Defines how and when the container restarts after stopping.
+- **Check update**: Enable or disable the update check feature (see above for details).
+- **Update check time**: Set the hour of day for the daily update check.
 
-![Configuration](https://raw.githubusercontent.com/tomaae/homeassistant-portainer/master/docs/assets/images/ui/options.png)
+<img width="574" height="510" alt="image" src="https://github.com/user-attachments/assets/8689f7b0-c619-4299-9239-10009836fad7" />
+
 
 # Development
 
