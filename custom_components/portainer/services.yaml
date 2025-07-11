@@ -1,1 +1,4 @@
 ---
+force_update_check:
+  name: Force Update Check
+  description: Force an immediate update check for all containers
