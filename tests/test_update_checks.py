@@ -1,6 +1,6 @@
 """Tests for Portainer coordinator update check functionality."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -139,19 +139,27 @@ class TestUpdateCheckLogic:
         assert result is True
 
     def test_should_check_updates_first_check(self, coordinator_with_mock):
-        """Test should_check_updates for first time check. Should return False if feature enabled and not forced."""
+        """Test should_check_updates for first time check. Should return False if feature enabled and nicht forced und Zeit noch nicht erreicht."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
+        coordinator_with_mock.config_entry.options["update_check_time"] = "23:59"
         coordinator_with_mock.last_update_check = None
         coordinator_with_mock.force_update_requested = False
-        result = coordinator_with_mock.should_check_updates()
-        # If logic now returns True on first check, expect True
+
+        # Setze now statisch auf 22:00 Uhr
+        fixed_now = datetime(2025, 1, 1, 22, 0, tzinfo=timezone.utc)
+        with patch("homeassistant.util.dt.now", return_value=fixed_now):
+            result = coordinator_with_mock.should_check_updates()
         assert result is False
 
     def test_should_check_updates_time_not_reached(self, coordinator_with_mock):
         """Test should_check_updates when check time hasn't been reached."""
         coordinator_with_mock.features["feature_switch_update_check"] = True
-        # Set last check to 1 hour ago
-        coordinator_with_mock.last_update_check = dt_util.now() - timedelta(hours=1)
+        coordinator_with_mock.config_entry.options["update_check_time"] = "23:59"
+        from datetime import datetime, timezone
+
+        coordinator_with_mock.last_update_check = datetime(
+            2025, 1, 1, 10, 0, tzinfo=timezone.utc
+        )
 
         result = coordinator_with_mock.should_check_updates()
         assert result is False
