@@ -36,7 +36,8 @@ List of Portainer endpoints.
 
 List of containers.
 
-<img width="544" height="838" alt="image" src="https://github.com/user-attachments/assets/e9074323-b551-4a9b-beed-116f4bffb6de" />
+<img width="544" height="838" alt="image" src="https://github.com/user-attachments/assets/fccee760-c43c-456e-a1bb-d576790e3b7d" />
+
 
 
 ## Update Check Feature
@@ -103,7 +104,8 @@ After setup, you can configure custom attributes and options for each Portainer 
 - **Check update**: Enable or disable the update check feature (see above for details).
 - **Update check time**: Set the hour of day for the daily update check.
 
-<img width="574" height="510" alt="image" src="https://github.com/user-attachments/assets/8689f7b0-c619-4299-9239-10009836fad7" />
+<img width="575" height="517" alt="image" src="https://github.com/user-attachments/assets/98986c18-ce35-4c15-b92d-6b0d25c17e74" />
+
 
 
 # Development
