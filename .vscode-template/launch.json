@@ -1,0 +1,49 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Current File",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "python": "./.venv/bin/python",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Python: pytest (All Tests)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/", "-v"],
+      "console": "integratedTerminal",
+      "python": "./.venv/bin/python",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Python: pytest (Current File)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v"],
+      "console": "integratedTerminal",
+      "python": "./.venv/bin/python",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Python: pytest with Coverage",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "tests/",
+        "--cov=custom_components.portainer",
+        "--cov-report=html",
+        "-v"
+      ],
+      "console": "integratedTerminal",
+      "python": "./.venv/bin/python",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

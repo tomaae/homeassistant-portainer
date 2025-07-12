@@ -22,7 +22,7 @@ Features:
 - List Endpoints
 - List Containers
 - Check registry, for container updates
-  -  Public repos on docker and github are currently supported
+  - Public repos on docker and github are currently supported
 
 # Features
 
@@ -37,8 +37,6 @@ List of Portainer endpoints.
 List of containers.
 
 <img width="544" height="838" alt="image" src="https://github.com/user-attachments/assets/fccee760-c43c-456e-a1bb-d576790e3b7d" />
-
-
 
 ## Update Check Feature
 
@@ -77,7 +75,7 @@ You can find it under "Integrations", named "Portainer".
 ## Get portainer access token
 
 1. Login into your portainer instance
-2. Click you username at top right and select "My Account"
+2. Click your username at the top right and select "My Account"
 3. Under "Access tokens", click "Add access token"
 4. Enter name for your access token (can be anything, for example "homeassistant")
 5. Copy displayed access token for use in integration setup
@@ -106,9 +104,21 @@ After setup, you can configure custom attributes and options for each Portainer 
 
 <img width="575" height="517" alt="image" src="https://github.com/user-attachments/assets/98986c18-ce35-4c15-b92d-6b0d25c17e74" />
 
-
-
 # Development
+
+## SonarCloud Automation
+
+To enable SonarCloud analysis via GitHub Actions, you must create the following secrets in your GitHub repository:
+
+- `SONAR_PROJECT_KEY`
+- `SONAR_ORGANIZATION`
+- `SONAR_TOKEN`
+
+Go to your repository's **Settings > Secrets and variables > Actions** and add these secrets. This allows the SonarCloud workflow to run automatically for code analysis.
+
+## Visual Studio Code Setup
+
+A `.vscode-template` directory is provided in the repository to help you set up your development environment in Visual Studio Code. Copy the contents of `.vscode-template` to your `.vscode` directory to use recommended settings and launch configurations for Python development and testing.
 
 ## Software Development
 

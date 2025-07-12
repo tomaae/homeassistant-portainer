@@ -18,6 +18,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Copy sonar-project.properties-template
+        run: cp sonar-project.properties-template sonar-project.properties
       - name: Inject secrets into sonar-project.properties
         run: |
           sed -i "s|\${SONAR_PROJECT_KEY}|${{ secrets.SONAR_PROJECT_KEY }}|g" sonar-project.properties
