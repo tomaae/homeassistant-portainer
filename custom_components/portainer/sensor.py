@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import date, datetime
 from decimal import Decimal
 from logging import getLogger
@@ -50,6 +51,21 @@ async def async_setup_entry(
         len(entities),
     )
 
+    # Detect duplicates before filtering
+    entity_ids = [getattr(entity, "unique_id", None) for entity in entities]
+    seen = set()
+    duplicates = set()
+    for eid in entity_ids:
+        if eid in seen:
+            duplicates.add(eid)
+        else:
+            seen.add(eid)
+    if duplicates:
+        _LOGGER.warning(
+            "Duplicate entities detected during sensor setup: %s. This may indicate an issue in entity creation logic.",
+            ", ".join(str(d) for d in duplicates if d is not None),
+        )
+
     unique_entities = _filter_unique_entities(entities)
     async_add_entities_callback(unique_entities, update_before_add=True)
 
@@ -72,7 +88,7 @@ async def async_setup_entry(
     )
 
     # Ensure at least one await to justify async
-    await hass.async_add_executor_job(lambda: None)
+    await asyncio.sleep(0)
 
 
 def _get_dispatcher():
@@ -251,26 +267,6 @@ class PortainerSensor(PortainerEntity, SensorEntity):
     @property
     def entity_registry_enabled_default(self) -> bool:
         """Return if the entity should be enabled by default."""
-        # Check if this is an UpdateCheckSensor - if so, use its specific logic
-        if isinstance(self, UpdateCheckSensor):
-            # Use the attribute if set, otherwise calculate from feature state
-            if hasattr(self, "_attr_entity_registry_enabled_default"):
-                return self._attr_entity_registry_enabled_default
-            feature_enabled = self.coordinator.config_entry.options.get(
-                CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
-            )
-            # Ensure we only accept actual boolean True, not truthy values
-            feature_enabled = feature_enabled is True
-            from logging import getLogger
-
-            logger = getLogger(__name__)
-            logger.debug(
-                "UpdateCheckSensor entity_registry_enabled_default property called: %s",
-                feature_enabled,
-            )
-            return feature_enabled
-
-        # For other sensors, use the default behavior (enabled by default)
         return True
 
 
@@ -407,15 +403,29 @@ class UpdateCheckSensor(PortainerSensor):
         feature_enabled = feature_enabled is True
         self._attr_entity_registry_enabled_default = feature_enabled
 
-        # Import logger for this class if not already available
-        from logging import getLogger
-
-        logger = getLogger(__name__)
-        logger.debug(
+        # Use module-level logger for this class
+        _LOGGER.debug(
             "Update Check Sensor initialized: feature_enabled=%s, entity_enabled_default=%s",
             feature_enabled,
             self._attr_entity_registry_enabled_default,
         )
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return if the entity should be enabled by default (feature-dependent)."""
+        # Use the attribute if set, otherwise calculate from feature state
+        if hasattr(self, "_attr_entity_registry_enabled_default"):
+            return self._attr_entity_registry_enabled_default
+        feature_enabled = self.coordinator.config_entry.options.get(
+            CONF_FEATURE_UPDATE_CHECK, DEFAULT_FEATURE_UPDATE_CHECK
+        )
+        # Ensure we only accept actual boolean True, not truthy values
+        feature_enabled = feature_enabled is True
+        _LOGGER.debug(
+            "UpdateCheckSensor entity_registry_enabled_default property called: %s",
+            feature_enabled,
+        )
+        return feature_enabled
 
     @property
     def available(self) -> bool:

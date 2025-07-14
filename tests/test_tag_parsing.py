@@ -236,30 +236,50 @@ class TestDockerImageTagParsing:
 class TestImageIdNormalization:
     """Test class for Docker image ID normalization functionality."""
 
-    def test_normalize_image_id_with_sha256_prefix(self, coordinator):
+    def test_normalize_image_id_with_sha256_prefix(self):
         """Test normalization of image IDs with sha256: prefix."""
+        from custom_components.portainer.portainer_update_service import (
+            PortainerUpdateService,
+        )
+
         image_id = "sha256:abc123def456789"
-        result = coordinator._normalize_image_id(image_id)
+        result = PortainerUpdateService._normalize_image_id(image_id)
         assert result == "abc123def456789"
 
-    def test_normalize_image_id_without_prefix(self, coordinator):
+    def test_normalize_image_id_without_prefix(self):
         """Test normalization of image IDs without prefix."""
+        from custom_components.portainer.portainer_update_service import (
+            PortainerUpdateService,
+        )
+
         image_id = "abc123def456789"
-        result = coordinator._normalize_image_id(image_id)
+        result = PortainerUpdateService._normalize_image_id(image_id)
         assert result == "abc123def456789"
 
-    def test_normalize_image_id_empty_string(self, coordinator):
+    def test_normalize_image_id_empty_string(self):
         """Test normalization of empty string."""
-        result = coordinator._normalize_image_id("")
+        from custom_components.portainer.portainer_update_service import (
+            PortainerUpdateService,
+        )
+
+        result = PortainerUpdateService._normalize_image_id("")
         assert result == ""
 
-    def test_normalize_image_id_short_id(self, coordinator):
+    def test_normalize_image_id_short_id(self):
         """Test normalization of short image IDs."""
+        from custom_components.portainer.portainer_update_service import (
+            PortainerUpdateService,
+        )
+
         image_id = "sha256:abc123"
-        result = coordinator._normalize_image_id(image_id)
+        result = PortainerUpdateService._normalize_image_id(image_id)
         assert result == "abc123"
 
-    def test_normalize_image_id_only_sha256_prefix(self, coordinator):
+    def test_normalize_image_id_only_sha256_prefix(self):
         """Test normalization when input is only the sha256 prefix."""
-        result = coordinator._normalize_image_id("sha256:")
+        from custom_components.portainer.portainer_update_service import (
+            PortainerUpdateService,
+        )
+
+        result = PortainerUpdateService._normalize_image_id("sha256:")
         assert result == ""

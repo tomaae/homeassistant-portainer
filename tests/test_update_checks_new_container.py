@@ -34,24 +34,48 @@ def test_check_image_updates_new_container_status_code():
             pass
 
     config_entry = MockEntry()
-    coordinator = PortainerCoordinator(hass, config_entry)
-    coordinator.features["feature_switch_update_check"] = (
-        False  # disables registry check, forces cache path
+    coordinator = PortainerCoordinator.__new__(PortainerCoordinator)
+    coordinator.hass = hass
+    coordinator.config_entry = config_entry
+    coordinator.api = object()  # Add mock API to avoid AttributeError
+    coordinator.features = {"feature_switch_update_check": False}
+    # Setup update_service for refactored logic before using last_update_check
+    from custom_components.portainer.portainer_update_service import (
+        PortainerUpdateService,
     )
-    # Patch: ensure required attributes are set for test
+
+    coordinator.update_service = PortainerUpdateService(
+        hass,
+        config_entry,
+        coordinator.api,
+        coordinator.features,
+        config_entry.entry_id,
+    )
     coordinator.last_update_check = None
     coordinator.cached_registry_responses = {}
     coordinator.cached_update_results = {}
+    # Setup update_service for refactored logic
+    from custom_components.portainer.portainer_update_service import (
+        PortainerUpdateService,
+    )
+
+    coordinator.update_service = PortainerUpdateService(
+        hass,
+        config_entry,
+        coordinator.api,
+        coordinator.features,
+        config_entry.entry_id,
+    )
     container_data = {
         "Id": "new_container",
         "Name": "/new_container",
         "Image": "nginx:latest",
     }
     # No cache entry for this container
-    result = coordinator.check_image_updates("eid", container_data)
+    result = coordinator.update_service.check_image_updates("eid", container_data)
     assert result["status"] == 2
     # Description should match new status code
-    desc = coordinator._get_update_description(2)
+    desc = coordinator.update_service._get_update_description(2)
     assert "not yet checked" in desc.lower()
 
 

@@ -328,7 +328,7 @@ If you want to add translations for a language that is not listed please [open a
 
 ## Enabling debug
 
-To enable debug for Portainer integration, add following to your configuration.yaml:
+To enable debug for Portainer integration, add the following to your configuration.yaml:
 
 ```
 logger:
