@@ -64,10 +64,6 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: "actions/checkout@v4"
-      - name: Install Bandit
-        run: pip install bandit
-      - name: Create output directory for Bandit
-        run: mkdir -p output
       - name: Security check - Bandit
         uses: ioggstream/bandit-report-artifacts@v1.7.4
         with:
