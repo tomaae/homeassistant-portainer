@@ -23,9 +23,9 @@ jobs:
       - name: Check out code from GitHub
         uses: "actions/checkout@v4"
       - name: Black Code Format Check
-        uses: psf/black@stable
+        uses: lgeiger/black-action@master
         with:
-          options: ". --check --fast --diff"
+          args: ". --check --fast --diff"
 
   tests:
     name: Python Tests
@@ -64,11 +64,12 @@ jobs:
     steps:
       - name: Check out code from GitHub
         uses: "actions/checkout@v4"
-      - name: Install Bandit
-        run: pip install bandit
       - name: Security check - Bandit
-        run: |
-          bandit -r custom_components/portainer -c .github/bandit.yaml -f txt -o output/security_report.txt
+        uses: ioggstream/bandit-report-artifacts@v1.7.4
+        with:
+          project_path: custom_components/portainer
+          config_file: .github/bandit.yaml
+          ignore_failure: false
       - name: Security check report artifacts
         uses: actions/upload-artifact@v4
         with:
