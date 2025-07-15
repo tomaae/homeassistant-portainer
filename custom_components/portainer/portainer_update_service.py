@@ -137,7 +137,7 @@ class PortainerUpdateService:
             return True
 
         now = dt_util.now()
-        scheduled_time = self.get_next_update_check_time()
+        scheduled_time = self.scheduled_time
 
         # If now is before scheduled time today
         if now < scheduled_time:
@@ -172,10 +172,10 @@ class PortainerUpdateService:
         # Next check is tomorrow
         return today_check + timedelta(days=1)
 
-    def get_scheduled_time(self, now=None) -> datetime:
+    @property
+    def scheduled_time(self) -> datetime:
         """Return the scheduled update check time for today as a datetime object."""
-        if now is None:
-            now = dt_util.now()
+        now = dt_util.now()
         time_str = self.config_entry.options.get("update_check_time", "02:00")
         hour, minute = [int(x) for x in time_str.split(":")]
         scheduled_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
