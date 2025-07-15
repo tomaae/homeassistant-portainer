@@ -495,7 +495,7 @@ class TestUpdateCheckLogic:
         """Test get_scheduled_time when feature is disabled (should still return scheduled time)."""
         coordinator_with_mock.features["feature_switch_update_check"] = False
         now = dt_util.now()
-        scheduled_time = coordinator_with_mock.update_service.get_scheduled_time(now)
+        scheduled_time = coordinator_with_mock.update_service.scheduled_time
         time_str = coordinator_with_mock.config_entry.options.get(
             "update_check_time", "02:00"
         )
@@ -507,7 +507,7 @@ class TestUpdateCheckLogic:
         """Test get_scheduled_time when today's time hasn't been reached."""
         coordinator_with_mock.config_entry.options["update_check_time"] = "23:00"
         now = dt_util.now()
-        scheduled_time = coordinator_with_mock.update_service.get_scheduled_time(now)
+        scheduled_time = coordinator_with_mock.update_service.scheduled_time
         assert scheduled_time.hour == 23
         assert scheduled_time.minute == 0
 
@@ -515,7 +515,7 @@ class TestUpdateCheckLogic:
         """Test get_scheduled_time when today's time has passed."""
         coordinator_with_mock.config_entry.options["update_check_time"] = "00:00"
         now = dt_util.now()
-        scheduled_time = coordinator_with_mock.update_service.get_scheduled_time(now)
+        scheduled_time = coordinator_with_mock.update_service.scheduled_time
         assert scheduled_time.hour == 0
         assert scheduled_time.minute == 0
         # Should be today (not tomorrow, since get_scheduled_time always returns today)
