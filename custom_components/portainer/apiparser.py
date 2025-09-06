@@ -3,9 +3,6 @@
 from datetime import datetime
 from logging import getLogger
 
-from pytz import utc
-from voluptuous import Optional
-
 from homeassistant.components.diagnostics import async_redact_data
 
 from .const import TO_REDACT
@@ -18,7 +15,7 @@ _LOGGER = getLogger(__name__)
 # ---------------------------
 def utc_from_timestamp(timestamp: float) -> datetime:
     """Return a UTC time from a timestamp."""
-    return utc.localize(datetime.utcfromtimestamp(timestamp))
+    return datetime.fromtimestamp(timestamp, tz=datetime.UTC)
 
 
 # ---------------------------
@@ -100,7 +97,7 @@ def parse_api(
 ) -> dict:
     """Get data from API."""
     debug = _LOGGER.getEffectiveLevel() == 10
-    if type(source) == dict:
+    if isinstance(source, dict):
         tmp = source
         source = [tmp]
 
@@ -147,7 +144,7 @@ def parse_api(
 # ---------------------------
 #   get_uid
 # ---------------------------
-def get_uid(entry, key, key_secondary, key_search, keymap) -> Optional(str):
+def get_uid(entry, key, key_secondary, key_search, keymap) -> str | None:
     """Get UID for data list."""
     uid = None
     if not key_search:
@@ -176,7 +173,7 @@ def get_uid(entry, key, key_secondary, key_search, keymap) -> Optional(str):
 # ---------------------------
 #   generate_keymap
 # ---------------------------
-def generate_keymap(data, key_search) -> Optional(dict):
+def generate_keymap(data, key_search) -> dict | None:
     """Generate keymap."""
     return (
         {data[uid][key_search]: uid for uid in data if key_search in data[uid]}

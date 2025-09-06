@@ -5,14 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import List
 
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntityDescription,
-    SensorStateClass,
-)
+from homeassistant.components.sensor import SensorEntityDescription
 
 from .const import CUSTOM_ATTRIBUTE_ARRAY
-
 
 DEVICE_ATTRIBUTES_ENDPOINTS = [
     "Type",
@@ -33,6 +28,7 @@ DEVICE_ATTRIBUTES_ENDPOINTS = [
 
 DEVICE_ATTRIBUTES_CONTAINERS = [
     "Image",
+    "ImageID",
     "Network",
     "Compose_Stack",
     "Compose_Service",
@@ -47,6 +43,10 @@ DEVICE_ATTRIBUTES_CONTAINERS = [
 class PortainerSensorEntityDescription(SensorEntityDescription):
     """Class describing portainer entities."""
 
+    key: str | None = None
+    name: str | None = None
+    icon: str | None = None
+    entity_category: str | None = None
     ha_group: str | None = None
     ha_connection: str | None = None
     ha_connection_value: str | None = None
@@ -88,6 +88,20 @@ SENSOR_TYPES: tuple[PortainerSensorEntityDescription, ...] = (
         data_attributes_list=DEVICE_ATTRIBUTES_CONTAINERS,
         func="ContainerSensor",
     ),
+    PortainerSensorEntityDescription(
+        key="update_check_status",
+        name="Container Update Check",
+        icon="mdi:clock-outline",
+        entity_category="diagnostic",
+        ha_group="System",  # Create special system device for update checks
+        data_path="system",  # Use system data path
+        data_attribute="next_update_check",  # Correct attribute name from coordinator
+        data_name="",
+        data_uid="",
+        data_reference="",  # No reference = single entity
+        data_attributes_list=[],
+        func="UpdateCheckSensor",
+    ),
 )
 
-SENSOR_SERVICES = []
+SENSOR_SERVICES: list[PortainerSensorEntityDescription] = []

@@ -1,34 +1,71 @@
 {
-    "config": {
-        "step": {
-            "user": {
-                "description": "Set up Portainer integration.",
-                "data": {
-                    "name": "Name of the integration",
-                    "host": "Host",
-                    "api_key": "API key",
-                    "ssl": "Use SSL",
-                    "verify_ssl": "Verify SSL certificate"
-                }
-            }
-        },
-        "error": {
-            "name_exists": "Name already exists.",
-            "no_response": "No response from host.",
-            "401": "No authorization for this endpoint.",
-            "404": "API not found on this host.",
-            "500": "Internal error."
+  "config": {
+    "step": {
+      "user": {
+        "description": "Set up Portainer integration.",
+        "data": {
+          "name": "Name of the integration",
+          "host": "Host",
+          "api_key": "API key",
+          "ssl": "Use SSL",
+          "verify_ssl": "Verify SSL certificate"
         }
+      }
     },
-    "options": {
-        "step": {
-            "init": {
-                "description": "Enable or disable custom features.",
-                "data": {
-                    "feature_switch_health_check": "Health check",
-                    "feature_switch_restart_policy": "Restart policy"
-                }
-            }   
-        }
+    "error": {
+      "name_exists": "Name already exists.",
+      "no_response": "No response from host.",
+      "401": "No authorization for this endpoint.",
+      "404": "API not found on this host.",
+      "500": "Internal error."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Portainer Configuration",
+        "description": "Configure Portainer features and monitoring options. Changes take effect after saving.",
+        "data": {
+          "feature_switch_health_check": "Health Check Monitoring",
+          "feature_switch_restart_policy": "Restart Policy Monitoring",
+          "feature_switch_update_check": "Container Update Check",
+          "update_check_time": "Update Check Time"
+        },
+        "data_description": {
+          "feature_switch_health_check": "Monitor container health status and create health check sensors",
+          "feature_switch_restart_policy": "Monitor container restart policies and create restart policy sensors",
+          "feature_switch_update_check": "Enable automatic daily container update checking",
+          "update_check_time": "Daily update check time in HH:MM format (e.g., 04:30, only used when update check is enabled)"
+        }
+      }
+    },
+    "error": {
+      "invalid_hour": "Invalid hour value. Must be between 0 and 23.",
+      "update_check_disabled": "Update check time is only used when update checking is enabled."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "update_check_status": {
+        "name": "Container Update Check",
+        "state": {
+          "never": "Never scheduled",
+          "disabled": "Disabled",
+          "update_status_0": "No update available.",
+          "update_status_1": "Update available!",
+          "update_status_2": "Update status not yet checked.",
+          "update_status_401": "Registry authentication failed for {registry}.",
+          "update_status_404": "Image not found on registry ({registry}).",
+          "update_status_429": "Registry rate limit reached.",
+          "update_status_500": "Registry/internal error."
+        }
+      }
+    }
+  },
+  "services": {
+    "force_update_check": {
+      "name": "Force Update Check",
+      "description": "Force an immediate update check for all containers"
+    }
+  }
 }

@@ -1,10 +1,12 @@
 """Constants used by the Portainer integration."""
 
-from homeassistant.const import Platform
 from typing import Final
+
+from homeassistant.const import Platform
 
 PLATFORMS = [
     Platform.SENSOR,
+    Platform.BUTTON,
 ]
 
 DOMAIN = "portainer"
@@ -32,8 +34,12 @@ TO_REDACT = {
 
 CUSTOM_ATTRIBUTE_ARRAY = "_Custom"
 
-# fature switch
+# feature switch
 CONF_FEATURE_HEALTH_CHECK: Final = "feature_switch_health_check"
 DEFAULT_FEATURE_HEALTH_CHECK = False
 CONF_FEATURE_RESTART_POLICY: Final = "feature_switch_restart_policy"
 DEFAULT_FEATURE_RESTART_POLICY = False
+CONF_FEATURE_UPDATE_CHECK: Final = "feature_switch_update_check"
+DEFAULT_FEATURE_UPDATE_CHECK = False
+CONF_UPDATE_CHECK_TIME: Final = "update_check_time"
+DEFAULT_UPDATE_CHECK_TIME = "02:00"  # Default time as string HH:MM

@@ -1,9 +1,14 @@
 """The Portainer integration."""
 
+import logging
+
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+
 from .const import DOMAIN, PLATFORMS
 from .coordinator import PortainerCoordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # ---------------------------
@@ -19,7 +24,6 @@ async def _async_update_listener(hass: HomeAssistant, config_entry: ConfigEntry)
 # ---------------------------
 async def async_setup_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
     """Set up a config entry."""
-
     if DOMAIN not in hass.data or config_entry.entry_id not in hass.data[DOMAIN]:
         hass.data.setdefault(DOMAIN, {})[config_entry.entry_id] = {
             "coordinator": None,

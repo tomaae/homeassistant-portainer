@@ -4,7 +4,7 @@ permissions:
 on:
   push:
     paths:
-      - 'custom_components/**'
+      - "custom_components/**"
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
@@ -17,9 +17,15 @@ jobs:
       - name: Check out code from GitHub
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Copy sonar-project.properties-template
+        run: cp sonar-project.properties-template sonar-project.properties
+      - name: Inject secrets into sonar-project.properties
+        run: |
+          sed -i "s|\${SONAR_PROJECT_KEY}|${{ secrets.SONAR_PROJECT_KEY }}|g" sonar-project.properties
+          sed -i "s|\${SONAR_ORGANIZATION}|${{ secrets.SONAR_ORGANIZATION }}|g" sonar-project.properties
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@master
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
